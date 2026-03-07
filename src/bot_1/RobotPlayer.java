@@ -53,20 +53,9 @@ public class RobotPlayer {
         // atk musuh yang dekat (protect tower)
         attackNearestEnemy(rc);
 
-        boolean paintLow = false; // untuk msg
-        boolean enemyNear = false; // untuk msg
-        boolean spawnSol = ((turnCount % 4 != 0) && !paintLow && !enemyNear); // sol : mop = 3 : 1
-
-        for (Direction dir : directions) {
-            MapLocation spawnLoc = rc.getLocation().add(dir);
-            if (spawnSol && rc.canBuildRobot(UnitType.SOLDIER, spawnLoc)) {
-                rc.buildRobot(UnitType.SOLDIER, spawnLoc);
-                break;
-            } else if (!spawnSol && rc.canBuildRobot(UnitType.MOPPER, spawnLoc)) {
-                rc.buildRobot(UnitType.MOPPER, spawnLoc);
-                break;
-            }
-        }
+        // untuk msg
+        boolean paintLow = false;
+        boolean enemyNear = false; 
 
         // Baca msg
         Message[] messages = rc.readMessages(-1);
@@ -77,6 +66,19 @@ public class RobotPlayer {
                 paintLow = true;
             } else if (msgType == MSG_ENEMY){
                 enemyNear = true;
+            }
+        }
+
+        boolean spawnSol = (turnCount % 4 != 0) && !paintLow && !enemyNear; // sol : mop = 3 : 1
+
+        for (Direction dir : directions) {
+            MapLocation spawnLoc = rc.getLocation().add(dir);
+            if (spawnSol && rc.canBuildRobot(UnitType.SOLDIER, spawnLoc)) {
+                rc.buildRobot(UnitType.SOLDIER, spawnLoc);
+                break;
+            } else if (!spawnSol && rc.canBuildRobot(UnitType.MOPPER, spawnLoc)) {
+                rc.buildRobot(UnitType.MOPPER, spawnLoc);
+                break;
             }
         }
     }
