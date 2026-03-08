@@ -158,21 +158,22 @@ public class RobotPlayer {
         // prefer loc own paint
         PaintType paint = rc.senseMapInfo(loc).getPaint();
         if (paint.isAlly()) {
-            score += 100;
+            score += 0;
         } else if (paint == PaintType.EMPTY){
-            if(unit == UnitType.SOLDIER){
-                score += 30;
-            } else {
-                score -= 100;
-            }
+            score -= 1;
         } else { // cat musuh
-            score -= 300;
+            if(unit == UnitType.MOPPER){
+                score -= 4;
+            } else if (unit == UnitType.SPLASHER){
+                score -=3;
+            } else {
+                score -= 2;
+            }
         }
 
         // jika soldier, prefer close to ruin
         if (unit == UnitType.SOLDIER && ruinLoc != null) {
-            int distToRuin = loc.distanceSquaredTo(ruinLoc);
-            score -= distToRuin; 
+            score -= loc.distanceSquaredTo(ruinLoc); 
         }
 
         // area banyak empty tiles
@@ -180,7 +181,9 @@ public class RobotPlayer {
             MapInfo[] nearby = rc.senseNearbyMapInfos(loc, 4);
             for (MapInfo m : nearby) {
                 if (m.getPaint() == PaintType.EMPTY && m.isPassable()){
-                    score += 5;
+                    score += 1;
+                } else if ((m.getPaint() == PaintType.ENEMY_PRIMARY || m.getPaint() == PaintType.ENEMY_SECONDARY) && loc.distanceSquaredTo(m.getMapLocation()) <= 2){
+                    score += 2;
                 }
             }
         }
@@ -188,7 +191,13 @@ public class RobotPlayer {
         // avoid spawn dekat musuh
         RobotInfo[] nearbyEnemies = rc.senseNearbyRobots(loc, 20, rc.getTeam().opponent());
         if (nearbyEnemies.length > 0) {
-            score -= 80 * nearbyEnemies.length;
+            int penalty;
+            if(unit == UnitType.MOPPER){
+                penalty = 4;
+            } else {
+                penalty = 2;
+            }
+            score -= penalty * nearbyEnemies.length;
         }
 
         return score;
@@ -272,15 +281,15 @@ public class RobotPlayer {
             }
 
             if (tile.hasRuin()){
-                score += 8; // priority utama
+                score += 20; // priority utama
                 continue;
             }
 
             PaintType paint = tile.getPaint();
             if (paint == PaintType.ENEMY_PRIMARY || paint == PaintType.ENEMY_SECONDARY){
-                 score += 5; // hapus cat musuh
+                 score += 2; // hapus cat musuh
             } else if (paint == PaintType.EMPTY){
-                score += 3; 
+                score += 1; 
             } else if (paint.isAlly()){
                 score -= 1; 
             }
@@ -594,8 +603,215 @@ public class RobotPlayer {
     }
 
     public static void runMopper(RobotController rc) throws GameActionException {
+        MapLocation myLoc = rc.getLocation();
+        RobotInfo[] allies = rc.senseNearbyRobots(-1, rc.getTeam());
+        RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+        MapInfo[] nearby = rc.senseNearbyMapInfos(myLoc, 2); // mop radius √2
 
+        if (rc.isActionReady()) { // tf cat
+            RobotInfo bestSol = null;
+            int tfGain = 0;
+            for (RobotInfo ally : allies) {
+                if (ally.type != UnitType.SOLDIER){
+                    continue;
+                }
+
+                if (myLoc.distanceSquaredTo(ally.location) > 2){ // max dist akar 2
+                    continue; 
+                }
+
+                int pct  = (int)(100.0 * ally.paintAmount / ally.type.paintCapacity);
+                if (pct >= 50){ // masih banyak
+                    continue; 
+                }
+
+                int give = Math.min(rc.getPaint() - 20, ally.type.paintCapacity - ally.paintAmount);
+                if (give <= 0){
+                    continue;
+                }
+
+                int gain; // prioritas soldier low paint
+                if(pct < 20){
+                    gain = give * 2;
+                } else {
+                    gain = give; 
+                }
+
+                if (gain > tfGain){ 
+                    tfGain = gain; 
+                    bestSol = ally; 
+                }
+            }
+
+            // ambil tile musuh
+            MapLocation bestMopTile = null;
+            int mopGain = 0;
+            for (MapInfo tile : nearby) {
+                PaintType p = tile.getPaint();
+                if (p != PaintType.ENEMY_PRIMARY && p != PaintType.ENEMY_SECONDARY){
+                    continue;
+                }
+
+                if (!rc.canAttack(tile.getMapLocation())){
+                    continue;
+                }
+
+                int gain = 15;
+                try {
+                    RobotInfo onTile = rc.senseRobotAtLocation(tile.getMapLocation());
+                    if (onTile != null && onTile.team != rc.getTeam()){
+                        gain += 10;
+                    }
+                } catch (GameActionException e) {}
+                if (gain > mopGain){ 
+                    mopGain = gain; 
+                    bestMopTile = tile.getMapLocation(); 
+                }
+            }
+
+            // swing enemy
+            Direction bestSwing = null;
+            int swingGain = 0;
+            for (Direction dir : new Direction[]{Direction.NORTH, Direction.SOUTH,Direction.EAST,  Direction.WEST}){
+                if (!rc.canMopSwing(dir)){
+                    continue;
+                }
+
+                int count = countSwingEnemy(rc, dir, enemies);
+                int gain  = count * 5; 
+                if (gain > swingGain){ 
+                    swingGain = gain; 
+                    bestSwing = dir; 
+                }
+            }
+
+            // pilih highest gain
+            int maxGain = Math.max(tfGain, Math.max(mopGain, swingGain));
+
+            if (maxGain > 0) {
+                if (maxGain == tfGain && bestSol != null){ // tf ke soldier low paint
+                    int give = Math.min(rc.getPaint() - 20, bestSol.type.paintCapacity - bestSol.paintAmount);
+                    rc.transferPaint(bestSol.location, give);
+
+                } else if (maxGain == swingGain && bestSwing != null){
+                    rc.mopSwing(bestSwing); // atk musuh
+
+                } else if (bestMopTile != null){
+                    rc.attack(bestMopTile); 
+                }
+            }
+        }
+
+        greedyMopper(rc);
     }
+
+    static int countSwingEnemy(RobotController rc, Direction dir, RobotInfo[] enemies){
+        MapLocation myLoc = rc.getLocation();
+        MapLocation step1 = myLoc.add(dir);
+        MapLocation step2 = step1.add(dir);
+        int count = 0;
+        for (RobotInfo enemy : enemies) {
+            if (enemy.location.isAdjacentTo(step1) || enemy.location.equals(step1) || enemy.location.isAdjacentTo(step2) || enemy.location.equals(step2)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    static void greedyMopper(RobotController rc) throws GameActionException {
+        if (!rc.isMovementReady()){
+            return;
+        }
+
+        MapLocation myLoc = rc.getLocation();
+
+        // cari soldier dgn low paint
+        RobotInfo[] allies = rc.senseNearbyRobots(-1, rc.getTeam());
+        MapLocation solTarget = null;
+        int lowestPaint = 100;
+        for (RobotInfo ally : allies) {
+            if (ally.type == UnitType.SOLDIER && ally.paintAmount < lowestPaint){
+                lowestPaint = ally.paintAmount;
+                solTarget = ally.location;
+            }
+        }
+
+        if (solTarget != null) {
+            Direction dir = myLoc.directionTo(solTarget);
+            if (rc.canMove(dir)){ 
+                rc.move(dir); 
+                return; 
+            }
+        }
+
+        Direction bestDir = null;
+        int bestScore = Integer.MIN_VALUE;
+        MapInfo[] nearby = rc.senseNearbyMapInfos();
+
+        for (Direction dir : directions) {
+            if (!rc.canMove(dir)){
+                continue;
+            }
+
+            MapLocation next = myLoc.add(dir);
+            int score = 0;
+
+            try {
+                PaintType nextPaint = rc.senseMapInfo(next).getPaint();
+                if(nextPaint.isAlly()){
+                    score += 0;
+                } else if (nextPaint == PaintType.EMPTY){
+                    score -= 1;
+                } else {
+                    score -= rc.getPaint() * 2;
+                }                                    
+            } catch (GameActionException e) {}
+
+            // ada cat musuh dalam jangkauan
+            for (MapInfo tile : nearby) {
+                if (next.distanceSquaredTo(tile.getMapLocation()) > 2){
+                    continue;
+                }
+
+                PaintType p = tile.getPaint();
+                if (p == PaintType.ENEMY_PRIMARY || p == PaintType.ENEMY_SECONDARY){
+                    score += 15;
+                }
+            }
+
+            // soldier butuh refill
+            for (RobotInfo ally : allies) {
+                if (ally.type != UnitType.SOLDIER){
+                    continue;
+                }
+
+                int pct = (int)(100.0 * ally.paintAmount / ally.type.paintCapacity);
+                int give = Math.min(rc.getPaint() - 20, ally.type.paintCapacity - ally.paintAmount);
+                if (pct < 50 && next.distanceSquaredTo(ally.location) <= 2 && give > 0){
+                    if(pct < 20){
+                        score += give * 2;
+                    } else {
+                        score += give;
+                    }
+                }
+            }
+
+            // ada musuh
+            RobotInfo[] nearEnemies = rc.senseNearbyRobots(next, 4, rc.getTeam().opponent());
+            score -= 5 * nearEnemies.length;
+
+            if (score > bestScore){ 
+                bestScore = score; 
+                bestDir = dir; 
+            }
+        }
+
+        if (bestDir != null){
+            rc.move(bestDir);
+        }
+    }
+
+
 
     public static void runSplasher(RobotController rc) throws GameActionException {
 
