@@ -79,6 +79,7 @@ public class RobotPlayer {
         int allySolLowPaint = 0;
         int enemyPaintTiles = 0;
         int emptyTiles = 0;
+        int allyTiles = 0;
 
         RobotInfo[] allies = rc.senseNearbyRobots(-1, rc.getTeam());
         for(RobotInfo ally : allies) {
@@ -100,9 +101,10 @@ public class RobotPlayer {
             PaintType p = tile.getPaint();
             if(p == PaintType.ENEMY_PRIMARY || p == PaintType.ENEMY_SECONDARY){
                 enemyPaintTiles++;
-            }
-            if(p == PaintType.EMPTY && tile.isPassable()){
+            } else if (p == PaintType.EMPTY && tile.isPassable()){
                 emptyTiles++;
+            } else if (p.isAlly()){
+                allyTiles++;
             }
         }
 
@@ -122,7 +124,7 @@ public class RobotPlayer {
             spawnUnit = UnitType.MOPPER;
         } else if(mopCount * 4 < solCount){ // jumlah sol kebanyakan
             spawnUnit = UnitType.MOPPER;
-        } else if(emptyTiles > 15 && splashCount < 2){
+        } else if(emptyTiles > allyTiles && splashCount < 2){
             spawnUnit = UnitType.SPLASHER;
         } else { // default
             spawnUnit = UnitType.SOLDIER;
@@ -238,10 +240,8 @@ public class RobotPlayer {
             return;
         }
 
-        attackEnemyPaint(rc); // jika ada, hapus cat musuh
         greedyMove(rc);
-        paintCurrTile(rc);
-
+        greedyPaint(rc);
     }
 
     static void greedyMove(RobotController rc) throws GameActionException {
@@ -281,7 +281,7 @@ public class RobotPlayer {
             }
 
             if(tile.hasRuin()){
-                score += 20; // priority utama
+                score += 30 - loc.distanceSquaredTo(tile.getMapLocation()); // priority utama
                 continue;
             }
 
@@ -363,23 +363,6 @@ public class RobotPlayer {
         MapLocation ruinLoc = ruinInfo.getMapLocation();
         MapLocation myLoc = rc.getLocation();
 
-        if(rc.isMovementReady()) {
-            Direction dir = myLoc.directionTo(ruinLoc);
-            if(rc.canMove(dir)) {
-                rc.move(dir);
-                myLoc = rc.getLocation();
-            } else { // alternatif
-                Direction[] alts = {dir.rotateLeft(), dir.rotateRight(), dir.rotateLeft().rotateLeft(), dir.rotateRight().rotateRight()};
-                for(Direction alt : alts) {
-                    if(rc.canMove(alt)) { 
-                        rc.move(alt); 
-                        myLoc = rc.getLocation(); 
-                        break; 
-                    }
-                }
-            }
-        }
-
         UnitType towerType = chooseTower(rc);
 
         if(rc.canMarkTowerPattern(towerType, ruinLoc)) { // mark tower
@@ -398,7 +381,7 @@ public class RobotPlayer {
         if(rc.isActionReady()) { // cat yang nearest
             MapLocation closestUnpainted = null;
             boolean useSecondary = false;
-            int closestDist = 10000000;
+            int closestDist = Integer.MAX_VALUE;
 
             for(MapInfo pat : rc.senseNearbyMapInfos(ruinLoc, 8)) {
                 if(pat.getMark() == PaintType.EMPTY){
@@ -422,6 +405,23 @@ public class RobotPlayer {
             }
             if(closestUnpainted != null){
                 rc.attack(closestUnpainted, useSecondary);
+            }
+        }
+
+        if(rc.isMovementReady()) {
+            Direction dir = myLoc.directionTo(ruinLoc);
+            if(rc.canMove(dir)) {
+                rc.move(dir);
+                myLoc = rc.getLocation();
+            } else { // alternatif
+                Direction[] alts = {dir.rotateLeft(), dir.rotateRight(), dir.rotateLeft().rotateLeft(), dir.rotateRight().rotateRight()};
+                for(Direction alt : alts) {
+                    if(rc.canMove(alt)) { 
+                        rc.move(alt); 
+                        myLoc = rc.getLocation(); 
+                        break; 
+                    }
+                }
             }
         }
 
@@ -469,37 +469,39 @@ public class RobotPlayer {
         return UnitType.LEVEL_ONE_MONEY_TOWER;
     }
 
-    static void paintCurrTile(RobotController rc) throws GameActionException {
-        if(!rc.isActionReady()){
+    static void greedyPaint(RobotController rc) throws GameActionException {
+        if (!rc.isActionReady()){
             return;
         }
 
-        MapInfo tile = rc.senseMapInfo(rc.getLocation());
-        if(!tile.getPaint().isAlly() && rc.canAttack(rc.getLocation())){
-            rc.attack(rc.getLocation());
-        }
-    }
+        MapLocation myLoc = rc.getLocation();
+        MapInfo[] tiles = rc.senseNearbyMapInfos(myLoc, 9);
+        MapLocation best = null;
+        int bestScore = Integer.MIN_VALUE;
 
-    static void attackEnemyPaint(RobotController rc) throws GameActionException {
-        if(!rc.isActionReady()){
-            return;
-        }
+        for (MapInfo m : tiles) {
+            if (!rc.canAttack(m.getMapLocation())){
+                continue;
+            }
 
-        MapInfo[] nearby = rc.senseNearbyMapInfos(rc.getLocation(), 9);
-        MapLocation bestTarget = null;
-        int bestDist = 10000000;
-        for(MapInfo tile : nearby) {
-            PaintType p = tile.getPaint();
+            PaintType p = m.getPaint();
+            int score;
             if(p == PaintType.ENEMY_PRIMARY || p == PaintType.ENEMY_SECONDARY){
-                int d = rc.getLocation().distanceSquaredTo(tile.getMapLocation());
-                if(d < bestDist && rc.canAttack(tile.getMapLocation())) {
-                    bestDist = d;
-                    bestTarget = tile.getMapLocation();
-                }
+                score = 7;
+            } else if (p == PaintType.EMPTY){
+                score = 5;
+            } else {
+                score = -2;
+            }
+
+            if(score > bestScore){ 
+                bestScore = score; 
+                best = m.getMapLocation(); 
             }
         }
-        if(bestTarget != null){
-            rc.attack(bestTarget);
+
+        if(best != null && bestScore > 0){
+            rc.attack(best);
         }
     }
 
@@ -507,7 +509,7 @@ public class RobotPlayer {
     static void paintRefill(RobotController rc) throws GameActionException {
         RobotInfo[] allies = rc.senseNearbyRobots(-1, rc.getTeam());
         RobotInfo nearestTower = null;
-        int bestDist = 10000000;
+        int bestDist = Integer.MAX_VALUE;
 
         for(RobotInfo ally : allies) {
             if(ally.type.isTowerType()){
@@ -826,7 +828,7 @@ public class RobotPlayer {
                 }
 
                 int gain = calcSplashGain(rc, center);
-                if(gain > bestGain) {
+                if(gain > bestGain){
                     bestGain   = gain;
                     bestCenter = center;
                 }
@@ -914,7 +916,7 @@ public class RobotPlayer {
                 gain += 1; 
             }
         }
-        
+
         return gain;
     }
 }
