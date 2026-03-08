@@ -21,11 +21,11 @@ public class RobotPlayer {
 
     // Message Declare 
     // Tipe msg di bit 30-31 
-    // (00=ada musuh, 01=ketemu ruin, 10=cat dikit)
+    // (01=ada musuh, 10=ketemu ruin, 11=cat dikit)
     // Koor x ada di bit 29-15, Koor y ada di bit 14-0 
-    static final int MSG_ENEMY    = 0;
-    static final int MSG_RUIN     = 1 << 30;
-    static final int MSG_PAINTLOW = 2 << 30; 
+    static final int MSG_ENEMY    = 1 << 30;
+    static final int MSG_RUIN     = 2 << 30;
+    static final int MSG_PAINTLOW = 3 << 30; 
 
     @SuppressWarnings("unused")
     public static void run(RobotController rc) throws GameActionException {
@@ -62,11 +62,11 @@ public class RobotPlayer {
         for (Message m : messages) {
             int data = m.getBytes();
             int msgType = data & (3 << 30);
-            if (msgType == MSG_PAINTLOW) {
+            if (msgType == MSG_PAINTLOW){
                 paintLow = true;
             } else if (msgType == MSG_ENEMY){
                 enemyNear = true;
-            } else if (msgType == MSG_RUIN) {
+            } else if (msgType == MSG_RUIN){
                 int x = (data >> 15) & 0x7FFF;
                 int y = data & 0x7FFF;
                 ruinLoc = new MapLocation(x, y);
@@ -82,15 +82,15 @@ public class RobotPlayer {
 
         RobotInfo[] allies = rc.senseNearbyRobots(-1, rc.getTeam());
         for (RobotInfo ally : allies) {
-            if (ally.type == UnitType.SOLDIER) {
+            if (ally.type == UnitType.SOLDIER){
                 solCount++;
                 int paintPct = (int)(100.0 * ally.paintAmount / ally.type.paintCapacity);
                 if (paintPct < 40) allySolLowPaint++;
             }
-            if (ally.type == UnitType.MOPPER) {
+            if (ally.type == UnitType.MOPPER){
                 mopCount++;
             }
-            if (ally.type == UnitType.SPLASHER) {
+            if (ally.type == UnitType.SPLASHER){
                 splashCount++;
             }
         }
@@ -98,10 +98,10 @@ public class RobotPlayer {
         MapInfo[] nearbyTiles = rc.senseNearbyMapInfos();
         for (MapInfo tile : nearbyTiles) {
             PaintType p = tile.getPaint();
-            if (p == PaintType.ENEMY_PRIMARY || p == PaintType.ENEMY_SECONDARY) {
+            if (p == PaintType.ENEMY_PRIMARY || p == PaintType.ENEMY_SECONDARY){
                 enemyPaintTiles++;
             }
-            if (p == PaintType.EMPTY && tile.isPassable()) {
+            if (p == PaintType.EMPTY && tile.isPassable()){
                 emptyTiles++;
             }
         }
@@ -130,7 +130,7 @@ public class RobotPlayer {
 
         // best loc spawn
         Direction bestDir = null;
-        int bestScore = -100000;
+        int bestScore = Integer.MIN_VALUE;
 
         for (Direction dir : directions) {
             MapLocation spawnLoc = rc.getLocation().add(dir);
@@ -179,14 +179,14 @@ public class RobotPlayer {
         if (unit == UnitType.SPLASHER) {
             MapInfo[] nearby = rc.senseNearbyMapInfos(loc, 4);
             for (MapInfo m : nearby) {
-                if (m.getPaint() == PaintType.EMPTY && m.isPassable()) {
+                if (m.getPaint() == PaintType.EMPTY && m.isPassable()){
                     score += 5;
                 }
             }
         }
 
         // avoid spawn dekat musuh
-        RobotInfo[] nearbyEnemies = rc.senseNearbyRobots(loc, 10, rc.getTeam().opponent());
+        RobotInfo[] nearbyEnemies = rc.senseNearbyRobots(loc, 20, rc.getTeam().opponent());
         if (nearbyEnemies.length > 0) {
             score -= 80 * nearbyEnemies.length;
         }
@@ -197,22 +197,25 @@ public class RobotPlayer {
     // atk musuh terdekat
     static void attackNearestEnemy(RobotController rc) throws GameActionException {
         RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-        if (enemies.length > 0 && rc.isActionReady()) {
+        if (enemies.length > 0 && rc.isActionReady()){
             // atk musuh HP terendah
             RobotInfo weakest = enemies[0];
             for (RobotInfo e : enemies) {
-                if (e.health < weakest.health) {
+                if (e.health < weakest.health){
                     weakest = e;
                 }
             }
-            if (rc.canAttack(weakest.location)) {
+            if (rc.canAttack(weakest.location)){
                 rc.attack(weakest.location);
             }
         }
     }
 
     public static void runSoldier(RobotController rc) throws GameActionException {
-        MapLocation myLoc = rc.getLocation();
+        RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+        if (enemies.length > 0){
+            repEnemySeen(rc);
+        }
 
         if(rc.getPaint() < 40){ // cari tower / mopper
             repLowPaint(rc);
@@ -240,9 +243,9 @@ public class RobotPlayer {
         MapLocation myLoc = rc.getLocation();
 
         Direction bestDir = null;
-        int bestScore = -100000;
+        int bestScore = Integer.MIN_VALUE;
 
-        for (Direction dir : directions) {
+        for (Direction dir : directions){
             if (!rc.canMove(dir)){
                 continue;
             }
@@ -258,19 +261,17 @@ public class RobotPlayer {
         if (bestDir != null){
             rc.move(bestDir);
         }
-
-        paintCurrTile(rc);
     }
 
     static int evalScore(RobotController rc, MapLocation loc) throws GameActionException {
         int score = 0;
         MapInfo[] nearby = rc.senseNearbyMapInfos(loc, 9);
-        for (MapInfo tile : nearby) {
+        for (MapInfo tile : nearby){
             if (!tile.isPassable()){
                 continue;
             }
 
-            if (tile.hasRuin()) {
+            if (tile.hasRuin()){
                 score += 8; // priority utama
                 continue;
             }
@@ -291,9 +292,9 @@ public class RobotPlayer {
     static MapInfo findBestRuin(RobotController rc) throws GameActionException {
         MapInfo[] nearbyTiles = rc.senseNearbyMapInfos();
         MapInfo bestRuin  = null;
-        int bestScore = -100000;
+        int bestScore = Integer.MIN_VALUE;
 
-        for (MapInfo tile : nearbyTiles) {
+        for (MapInfo tile : nearbyTiles){
             if (!tile.hasRuin()){
                  continue;
             }
@@ -321,11 +322,28 @@ public class RobotPlayer {
     }
 
     static int countUnpainted(RobotController rc, MapLocation ruinLoc) throws GameActionException {
+        boolean hasMark = false;
         int count = 0;
         MapInfo[] tiles = rc.senseNearbyMapInfos(ruinLoc, 8);
+
         for (MapInfo m : tiles) {
-            if (m.getMark() != PaintType.EMPTY && m.getMark() != m.getPaint()) {
-                count++;
+            if (m.getMark() != PaintType.EMPTY){
+                hasMark = true; 
+                break; 
+            }
+        }
+
+        if(hasMark){
+            for(MapInfo m : tiles) {
+                if (m.getMark() != PaintType.EMPTY && m.getMark() != m.getPaint()){
+                    count++;
+                }
+            }
+        } else {
+            for(MapInfo m : tiles){
+                if(m.isPassable() && !m.getPaint().isAlly()){
+                    count++;
+                }
             }
         }
 
@@ -357,7 +375,7 @@ public class RobotPlayer {
 
         if (rc.canMarkTowerPattern(towerType, ruinLoc)) { // mark tower
             boolean alrMarked = false;
-            for (MapInfo m : rc.senseNearbyMapInfos(ruinLoc, 8)) {
+            for (MapInfo m : rc.senseNearbyMapInfos(ruinLoc, 8)){
                 if (m.getMark() != PaintType.EMPTY) { 
                     alrMarked = true; 
                     break; 
@@ -399,7 +417,7 @@ public class RobotPlayer {
         }
 
         // finish tower
-        if (rc.canCompleteTowerPattern(towerType, ruinLoc)) {
+        if (rc.canCompleteTowerPattern(towerType, ruinLoc)){
             rc.completeTowerPattern(towerType, ruinLoc);
             rc.setTimelineMarker("Tower Built!", 0, 255, 0);
         }
@@ -411,7 +429,6 @@ public class RobotPlayer {
         int paintTowers = 0;
         int moneyTowers = 0;
         int defenseTowers = 0;
-        int enemyRobots = 0;
 
         RobotInfo[] allies = rc.senseNearbyRobots(-1, rc.getTeam());
         for (RobotInfo ally : allies) {
@@ -424,7 +441,7 @@ public class RobotPlayer {
             }
         }
 
-        enemyRobots = rc.senseNearbyRobots(-1, rc.getTeam().opponent()).length;
+        int enemyRobots = rc.senseNearbyRobots(-1, rc.getTeam().opponent()).length;
 
         // pilih tower sesuai kebutuhan
         if (paintTowers == 0){
@@ -449,7 +466,7 @@ public class RobotPlayer {
         }
 
         MapInfo tile = rc.senseMapInfo(rc.getLocation());
-        if (!tile.getPaint().isAlly() && rc.canAttack(rc.getLocation())) {
+        if (!tile.getPaint().isAlly() && rc.canAttack(rc.getLocation())){
             rc.attack(rc.getLocation());
         }
     }
@@ -464,7 +481,7 @@ public class RobotPlayer {
         int bestDist = 10000000;
         for (MapInfo tile : nearby) {
             PaintType p = tile.getPaint();
-            if (p == PaintType.ENEMY_PRIMARY || p == PaintType.ENEMY_SECONDARY) {
+            if (p == PaintType.ENEMY_PRIMARY || p == PaintType.ENEMY_SECONDARY){
                 int d = rc.getLocation().distanceSquaredTo(tile.getMapLocation());
                 if (d < bestDist && rc.canAttack(tile.getMapLocation())) {
                     bestDist = d;
@@ -484,7 +501,7 @@ public class RobotPlayer {
         int bestDist = 10000000;
 
         for (RobotInfo ally : allies) {
-            if (ally.type.isTowerType()) {
+            if (ally.type.isTowerType()){
                 int d = rc.getLocation().distanceSquaredTo(ally.location);
                 if (d < bestDist){
                     bestDist = d; 
@@ -502,7 +519,7 @@ public class RobotPlayer {
 
             // ambil cat
             int distTower = rc.getLocation().distanceSquaredTo(nearestTower.location);
-            if (rc.isActionReady() && distTower <= Math.sqrt(2) ) {
+            if (rc.isActionReady() && distTower <= 2){
                 int needed = rc.getType().paintCapacity - rc.getPaint();
                 if (needed > 0) {
                     rc.transferPaint(nearestTower.location, -needed); 
@@ -510,7 +527,7 @@ public class RobotPlayer {
             }
         } else {
             Direction bestDir = null;
-            int bestScore = -100000;
+            int bestScore = Integer.MIN_VALUE;
 
             for (Direction dir : directions) {
                 if (!rc.canMove(dir)){
@@ -555,6 +572,20 @@ public class RobotPlayer {
             if (ally.type.isTowerType()) {
                 int msg = MSG_RUIN | (ruinLoc.x << 15) | ruinLoc.y;
                 if (rc.canSendMessage(ally.location, msg)) {
+                    rc.sendMessage(ally.location, msg);
+                    break;
+                }
+            }
+        }
+    }
+
+    static void repEnemySeen(RobotController rc) throws GameActionException {
+        MapLocation myLoc = rc.getLocation();
+        RobotInfo[] allies = rc.senseNearbyRobots(-1, rc.getTeam());
+        for (RobotInfo ally : allies) {
+            if (ally.type.isTowerType()){
+                int msg = MSG_ENEMY | (myLoc.x << 15) | myLoc.y;
+                if (rc.canSendMessage(ally.location, msg)){
                     rc.sendMessage(ally.location, msg);
                     break;
                 }
