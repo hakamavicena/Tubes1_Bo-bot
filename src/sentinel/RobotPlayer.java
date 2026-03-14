@@ -1,4 +1,4 @@
-package bot_1;
+package sentinel;
 
 import battlecode.common.*;
 import java.util.Random;
