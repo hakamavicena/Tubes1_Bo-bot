@@ -22,11 +22,10 @@ public class RobotPlayer {
 	static int recentIdx = 0, stuckCount = 0, targetTurn = 0;
 	static int mapWidth = -1, mapHeight = -1, mySecX = -1, mySecY = -1;
 	static MapLocation lastLoc = null, exploreTarget = null, spawnTower = null, mirrorTower = null, lockedEnemyLoc = null;
-	static boolean symChecked = false, refillMode = false, bugFollowing = false, bugLeftHand = true;
-	static int bugFollowTurns = 0, bugStartDist = Integer.MAX_VALUE;
-	static int combatLockTurns = 0;
-	static Direction bugWallDir = Direction.NORTH;
-	static MapLocation bugTarget = null;
+	static boolean symChecked = false, refillMode = false, isobsFollowing = false, obsFollowLeft = true;
+	static int obsFollowTurns = 0, obsFollowStartDist = Integer.MAX_VALUE, combatLockTurns = 0;
+	static Direction obsWallDirection = Direction.NORTH;
+	static MapLocation obsNavTarget = null;
 
 	@SuppressWarnings("unused")
 	public static void run(RobotController rc) throws GameActionException {
@@ -124,7 +123,8 @@ public class RobotPlayer {
 		}
 	}
 
-	static boolean tryMoveTowardBug0(RobotController rc, MapLocation target) throws GameActionException {
+	// Menghindari objek, misal wall agar tidak stuck
+	static boolean tryMoveTowardObs(RobotController rc, MapLocation target) throws GameActionException {
 		if (!rc.isMovementReady() || target == null) {
 			return false;
 		}
@@ -134,56 +134,56 @@ public class RobotPlayer {
 			return false;
 		}
 
-		if (bugTarget == null || !bugTarget.equals(target)) {
-			bugFollowing = false;
-			bugFollowTurns = 0;
-			bugTarget = target;
-			bugStartDist = myLoc.distanceSquaredTo(target);
+		if (obsNavTarget == null || !obsNavTarget.equals(target)) {
+			isobsFollowing = false;
+			obsFollowTurns = 0;
+			obsNavTarget = target;
+			obsFollowStartDist = myLoc.distanceSquaredTo(target);
 		}
 
 		Direction toTarget = myLoc.directionTo(target);
 		if (rc.canMove(toTarget)) {
-			if (!bugFollowing || myLoc.distanceSquaredTo(target) <= bugStartDist || bugFollowTurns > 12) {
+			if (!isobsFollowing || myLoc.distanceSquaredTo(target) <= obsFollowStartDist || obsFollowTurns > 12) {
 				rc.move(toTarget);
-				bugFollowing = false;
-				bugFollowTurns = 0;
-				bugStartDist = rc.getLocation().distanceSquaredTo(target);
-				bugWallDir = toTarget;
+				isobsFollowing = false;
+				obsFollowTurns = 0;
+				obsFollowStartDist = rc.getLocation().distanceSquaredTo(target);
+				obsWallDirection = toTarget;
 				return true;
 			}
 		}
 
-		if (!bugFollowing) {
-			bugFollowing = true;
-			bugFollowTurns = 0;
-			bugStartDist = myLoc.distanceSquaredTo(target);
-			bugWallDir = toTarget;
-			bugLeftHand = ((rc.getID() + turnCount) & 1) == 0;
+		if (!isobsFollowing) {
+			isobsFollowing = true;
+			obsFollowTurns = 0;
+			obsFollowStartDist = myLoc.distanceSquaredTo(target);
+			obsWallDirection = toTarget;
+			obsFollowLeft = ((rc.getID() + turnCount) & 1) == 0;
 		}
 
-		bugFollowTurns++;
-		Direction probe = bugWallDir;
+		obsFollowTurns++;
+		Direction obs = obsWallDirection;
 		for (int index = 0; index < 8; index++) {
-			probe = bugLeftHand ? probe.rotateLeft() : probe.rotateRight();
-			if (rc.canMove(probe)) {
-				rc.move(probe);
-				bugWallDir = probe;
+			obs = obsFollowLeft ? obs.rotateLeft() : obs.rotateRight();
+			if (rc.canMove(obs)) {
+				rc.move(obs);
+				obsWallDirection = obs;
 				if (rc.canMove(rc.getLocation().directionTo(target))
-						&& rc.getLocation().distanceSquaredTo(target) < bugStartDist) {
-					bugFollowing = false;
-					bugFollowTurns = 0;
+						&& rc.getLocation().distanceSquaredTo(target) < obsFollowStartDist) {
+					isobsFollowing = false;
+					obsFollowTurns = 0;
 				}
 				return true;
 			}
 		}
 
-		bugLeftHand = !bugLeftHand;
-		probe = bugWallDir;
+		obsFollowLeft = !obsFollowLeft;
+		obs = obsWallDirection;
 		for (int index = 0; index < 8; index++) {
-			probe = bugLeftHand ? probe.rotateLeft() : probe.rotateRight();
-			if (rc.canMove(probe)) {
-				rc.move(probe);
-				bugWallDir = probe;
+			obs = obsFollowLeft ? obs.rotateLeft() : obs.rotateRight();
+			if (rc.canMove(obs)) {
+				rc.move(obs);
+				obsWallDirection = obs;
 				return true;
 			}
 		}
@@ -191,7 +191,7 @@ public class RobotPlayer {
 	}
 
 	static void moveToward(RobotController rc, MapLocation target) throws GameActionException {
-		tryMoveTowardBug0(rc, target);
+		tryMoveTowardObs(rc, target);
 	}
 
 	static MapLocation nearestAllyTowerLoc(RobotController rc) throws GameActionException {

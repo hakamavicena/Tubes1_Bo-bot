@@ -63,6 +63,7 @@ final class Soldier {
         }
     }
 
+    // Pilih target based on tipe dan hp.
     static void attackBestTarget(RobotController rc, RobotInfo[] enemies) throws GameActionException {
         if (!rc.isActionReady()) return;
 
@@ -130,6 +131,7 @@ final class Soldier {
         return RobotPlayer.refillMode;
     }
 
+    // refill paint ke tower terdekat
     static void doRefill(RobotController rc) throws GameActionException {
         RobotInfo nearestTower = null;
         int bestDistance = Integer.MAX_VALUE;
@@ -278,7 +280,7 @@ final class Soldier {
         }
 
         MapLocation pursuit = enemyTarget != null ? enemyTarget : target;
-        if (pursuit != null && RobotPlayer.blockedAround(rc, myLoc) >= 5 && RobotPlayer.tryMoveTowardBug0(rc, pursuit)) {
+        if (pursuit != null && RobotPlayer.blockedAround(rc, myLoc) >= 5 && RobotPlayer.tryMoveTowardObs(rc, pursuit)) {
             RobotPlayer.lastLoc = myLoc;
             return;
         }
@@ -353,6 +355,7 @@ final class Soldier {
         RobotPlayer.lastLoc = myLoc;
     }
 
+    // atk enemy paint yang paling untung.
     static int greedyAttackEnemyPaint(RobotController rc) throws GameActionException {
         if (!rc.isActionReady()) {
             return 0;
@@ -419,6 +422,7 @@ final class Soldier {
         return bestRuin;
     }
 
+    // Hitung jumlah tile pattern ruin yang belum sesuai mark/paint.
     static int countUnpainted(RobotController rc, MapLocation ruinLoc) throws GameActionException {
         boolean hasMark = false;
         int count = 0;
@@ -447,6 +451,7 @@ final class Soldier {
         return count;
     }
 
+    // mark, paint pattern, lalu complete.
     static void handleRuinBuilding(RobotController rc, MapInfo ruinInfo) throws GameActionException {
         MapLocation ruinLoc = ruinInfo.getMapLocation();
         MapLocation myLoc = rc.getLocation();
@@ -498,6 +503,7 @@ final class Soldier {
         repRuinFound(rc, ruinLoc);
     }
 
+    // pilih tipe tower terbaik berdasarkan kondisi sekitar dan musuh.
     static UnitType chooseTower(RobotController rc, MapLocation ruinLoc) throws GameActionException {
         int paintTowers = 0;
         int moneyTowers = 0;
@@ -553,15 +559,18 @@ final class Soldier {
         return UnitType.LEVEL_ONE_PAINT_TOWER;
     }
 
+    // sinyal tower paint soldier dikit.
     static void repLowPaint(RobotController rc) throws GameActionException {
         MapLocation loc = rc.getLocation();
         RobotPlayer.sendMsgToTower(rc, RobotPlayer.MSG_PAINTLOW | (loc.x << 15) | loc.y);
     }
 
+    // sinyal posisi ruin yang sedang diproses.
     static void repRuinFound(RobotController rc, MapLocation ruinLoc) throws GameActionException {
         RobotPlayer.sendMsgToTower(rc, RobotPlayer.MSG_RUIN | (ruinLoc.x << 15) | ruinLoc.y);
     }
 
+    // sinyal posisi musuh yang terlihat.
     static void repEnemySeen(RobotController rc) throws GameActionException {
         MapLocation loc = rc.getLocation();
         RobotPlayer.sendMsgToTower(rc, RobotPlayer.MSG_ENEMY | (loc.x << 15) | loc.y);
@@ -651,6 +660,7 @@ final class Soldier {
         return false;
     }
 
+    // cat tile terdekat dengan prioritas enemy paint.
     static void paintBestNearby(RobotController rc) throws GameActionException {
         if (!rc.isActionReady()) return;
 

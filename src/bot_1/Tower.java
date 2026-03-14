@@ -18,6 +18,13 @@ final class Tower {
 
         SpawnStats stats = collectStats(rc);
 
+        // Prioritaskan upgrade tower saat resource cukup dan kondisi mendukung
+        MapLocation myLoc = rc.getLocation();
+        if (rc.canUpgradeTower(myLoc) && shouldUpgradeNow(rc, stats)) {
+            rc.upgradeTower(myLoc);
+            return;
+        }
+
         UnitType myType = rc.getType();
         // Recycle money tower saat aman untuk all in push
         if ((myType == UnitType.LEVEL_ONE_MONEY_TOWER || myType == UnitType.LEVEL_TWO_MONEY_TOWER
@@ -51,6 +58,67 @@ final class Tower {
         if (bestDirection != null) {
             rc.buildRobot(spawnUnit, rc.getLocation().add(bestDirection));
         }
+    }
+
+    static boolean shouldUpgradeNow(RobotController rc, SpawnStats stats) {
+        UnitType myType = rc.getType();
+        if (!isUpgradeableTower(myType)) return false;
+
+        int chips = rc.getChips();
+        int paint = rc.getPaint();
+        int towerCount = rc.getNumberTowers();
+
+        if (chips < 1800 || paint < 80) {
+            return false;
+        }
+
+        if (towerCount >= 8 && chips >= 2200 && paint >= 120) {
+            return true;
+        }
+
+        // Saat diserang, prioritaskan upgrade tower defense/paint
+        if (stats.enemyNear) {
+            if (isDefenseTower(myType) && chips >= 1800) {
+                return true;
+            }
+            if (isPaintTower(myType) && chips >= 2200 && paint >= 140) {
+                return true;
+            }
+            return false;
+        }
+
+        // Saat aman, fokus money tower
+        if (isMoneyTower(myType) && chips >= 2000 && paint >= 100) {
+            return true;
+        }
+
+        // fokus paint tower saat banyak low paint
+        if (isPaintTower(myType) && stats.lowPaintSoldiers >= 2 && chips >= 2100) {
+            return true;
+        }
+
+        // def tower upgrade saat banyak musuh
+        if (isDefenseTower(myType) && (stats.enemyTiles >= 6 || towerCount < 5) && chips >= 2000) {
+            return true;
+        }
+
+        return false;
+    }
+
+    static boolean isUpgradeableTower(UnitType type) {
+        return isMoneyTower(type) || isPaintTower(type) || isDefenseTower(type);
+    }
+
+    static boolean isMoneyTower(UnitType type) {
+        return type == UnitType.LEVEL_ONE_MONEY_TOWER || type == UnitType.LEVEL_TWO_MONEY_TOWER;
+    }
+
+    static boolean isPaintTower(UnitType type) {
+        return type == UnitType.LEVEL_ONE_PAINT_TOWER || type == UnitType.LEVEL_TWO_PAINT_TOWER;
+    }
+
+    static boolean isDefenseTower(UnitType type) {
+        return type == UnitType.LEVEL_ONE_DEFENSE_TOWER || type == UnitType.LEVEL_TWO_DEFENSE_TOWER;
     }
 
     static SpawnStats collectStats(RobotController rc) throws GameActionException {
@@ -123,7 +191,7 @@ final class Tower {
         if (RobotPlayer.turnCount > 180 && s.splasherCount < 2) splasherValue += 25;
         if (s.enemyTiles == 0 && s.emptyTiles < 6) splasherValue -= 20;
 
-        // Saat tertekan, tarik prioritas ke frontline agar tidak kalah tempo duel.
+        // Saat diserang, prior soldier dan mopper
         if (s.enemyNear) {
             soldierValue += 35;
             mopperValue += 20;
