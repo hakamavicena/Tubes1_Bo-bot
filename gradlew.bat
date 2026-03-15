@@ -25,7 +25,7 @@
 if "%OS%"=="Windows_NT" setlocal
 
 @rem
-set JAVA_HOME=C:\Program Files\Eclipse Adoptium\jdk-21.0.10.7-hotspot
+set JAVA_HOME=C:\Program Files\Java\jdk-21.0.10
 
 set DIRNAME=%~dp0
 if "%DIRNAME%"=="" set DIRNAME=.
