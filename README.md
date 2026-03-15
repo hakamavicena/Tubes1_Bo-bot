@@ -133,25 +133,20 @@ src/
 
 ## Cara Menjalankan Program
 
-### Windows
+### Windows / Linux / macOS
 ```bash
-./gradlew.bat build
-./gradlew.bat run
-```
-
-### Linux / macOS
-```bash
-./gradlew build
-./gradlew run
+cd client
+./"Stima Battle Client.exe"
 ```
 
 ### Langkah-Langkah Menjalankan Program
 1. Buka terminal pada root folder repository.
 2. Jalankan proses build dengan command yang sesuai.
 3. Pastikan tidak ada error kompilasi.
-4. Jalankan simulator atau match Battlecode.
+4. Buka folder Client dan kemudian run file exenya(Stima Battle Client.exe)
 5. Pilih bot yang ingin diuji.
-6. Amati performa bot melalui viewer atau simulator.
+6. Jalankan simulator atau match Battlecode.
+7. Amati performa bot melalui viewer atau simulator.
 
 ## Author
 Kelompok 17 - Bo-bot
