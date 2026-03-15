@@ -86,10 +86,7 @@ Bot ini dirancang untuk:
 ### 3. Zoro
 Bot zoro adalah bot berbasis algoritma greedy yang memfokuskan 3 hal yaitu **ekspansi cat pada tile kosong, pembangunan tower pada teritori yang sudah dicat, dan menyerang cat musuh yang berbatasan langsung dengan teritori**. Ekspansi cat pada tile kosong diawali dengan mengidentifikasi tile-tile kosong sekitar spawn tower serta secara menyebar ke berbagai arah dengan tugas ini dilakukan oleh robot soldier. Selanjutnya pembangunan tower, fokus ini dilakukan pada “gelombang kedua” setelah ekspansi oleh robot soldier juga yang mendatangi ruin-ruin pada teritori untuk dibangun tower. Pemilihan tower tergantung dengan berbagai kondisi, misal dekat dengan teritori musuh (tower dan robot) maka dibangun defense tower. Terakhir, penyerangan teritori lawan hal ini ditugaskan kepada robot mopper dan splasher yang bekerja sama untuk menyerbu pada satu jalan masuk.
 
-...
-
 #### Intuisi strategi
-...
 Bot ini dirancang untuk:
 - ekspansi cat pada tile kosong berbagai arah dengan tujuan > 70% penguasaan
 - mengamankan teritori dengan pembangunan tower pada teritori yang dicat
