@@ -104,10 +104,11 @@ Program ini membutuhkan:
   - macOS
 
 ### Instalasi
-1. Install **JDK**
-2. Pastikan `java` dan `javac` sudah dapat dijalankan dari terminal
-3. Pastikan project menggunakan template Battlecode yang benar
-4. Letakkan source code bot pada struktur folder yang sesuai
+1. [Install **JDK**](https://www.oracle.com/asean/java/technologies/downloads/)
+2. [Install **Gradle**](https://gradle.org/releases/)
+3. Pastikan `java` dan `javac` sudah dapat dijalankan dari terminal
+4. Pastikan project menggunakan template Battlecode yang benar
+5. Letakkan source code bot pada struktur folder yang sesuai
 
 Contoh struktur folder:
 
