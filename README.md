@@ -5,10 +5,10 @@
 Repository ini berisi implementasi bot Battlecode 2025 berbasis **algoritma greedy** untuk menyelesaikan tugas besar IF2211 Strategi Algoritma.
 
 Secara umum, seluruh bot yang dibuat menggunakan prinsip yang sama, yaitu:
-1. membangkitkan himpunan aksi yang mungkin dilakukan,
-2. menyaring aksi yang valid atau feasible,
-3. memberi nilai heuristic pada setiap kandidat aksi,
-4. memilih aksi dengan nilai tertinggi pada kondisi saat itu.
+1. membangkitkan himpunan aksi yang mungkin dilakukan
+2. menyaring aksi yang valid atau feasible
+3. memberi nilai heuristic pada setiap kandidat aksi
+4. memilih aksi dengan nilai tertinggi pada kondisi saat itu
 
 Dengan pendekatan ini, bot selalu berusaha mengambil **keputusan lokal terbaik** pada setiap giliran, sehingga tetap sesuai dengan paradigma **algoritma greedy**.
 
@@ -20,29 +20,29 @@ Dengan pendekatan ini, bot selalu berusaha mengambil **keputusan lokal terbaik**
 Sentinel adalah bot berbasis greedy yang berfokus pada **combat, movement, dan ekspansi area**.
 
 Pada setiap giliran, Sentinel mengevaluasi aksi-aksi yang tersedia seperti:
-- bergerak ke salah satu arah yang legal,
-- menyerang target musuh yang tersedia,
-- mengecat tile yang menguntungkan,
-- membangun tower,
-- refill paint,
-- atau melakukan aksi support lain.
+- bergerak ke salah satu arah yang legal
+- menyerang target musuh yang tersedia
+- mengecat tile yang menguntungkan
+- membangun tower
+- refill paint
+- melakukan aksi support lain
 
 Setiap aksi diberi skor berdasarkan beberapa faktor, seperti:
-- prioritas target musuh,
-- HP target,
-- keuntungan posisi,
-- nilai area yang bisa dikontrol,
-- risiko stuck,
-- dan efisiensi penggunaan paint.
+- prioritas target musuh
+- HP target
+- keuntungan posisi
+- nilai area yang bisa dikontrol
+- risiko stuck
+- efisiensi penggunaan paint
 
 Sentinel kemudian memilih aksi dengan skor tertinggi. Dengan demikian, Sentinel bersifat greedy karena selalu mengambil **aksi lokal paling menguntungkan** pada turn tersebut.
 
 #### Intuisi strategi Sentinel
 Bot ini dirancang untuk:
-- bereaksi cepat terhadap musuh,
-- memilih target combat yang bernilai tinggi,
-- memperluas area sambil tetap menjaga tekanan,
-- dan menghindari pergerakan yang berulang atau tidak produktif.
+- bereaksi cepat terhadap musuh
+- memilih target combat yang bernilai tinggi
+- memperluas area sambil tetap menjaga tekanan
+- menghindari pergerakan yang berulang atau tidak produktif
 
 ---
 
@@ -50,31 +50,31 @@ Bot ini dirancang untuk:
 TerraFirma adalah bot berbasis greedy yang menitikberatkan pada **ekspansi ruin, eksplorasi terarah, dan tekanan pada satu front utama**.
 
 Pada setiap turn, TerraFirma mengevaluasi aksi-aksi seperti:
-- bergerak menuju ruin,
-- menjelajah frontier,
-- mendekati sektor map yang lama tidak dikunjungi,
-- menyerang musuh,
-- membangun tower,
-- upgrade tower,
-- spawn robot,
-- dan refill paint.
+- bergerak menuju ruin
+- menjelajah frontier
+- mendekati sektor map yang lama tidak dikunjungi
+- menyerang musuh
+- membangun tower
+- upgrade tower
+- spawn robot
+- refill paint
 
 Setiap aksi dinilai menggunakan heuristic yang mempertimbangkan:
-- economic value,
-- peluang konversi ruin menjadi tower,
-- nilai area,
-- peluang memperbesar front pressure,
-- efisiensi posisi,
-- dan perkembangan kontrol map.
+- economic value
+- peluang konversi ruin menjadi tower
+- nilai area
+- peluang memperbesar front pressure
+- efisiensi posisi
+- perkembangan kontrol map
 
 TerraFirma lalu memilih aksi dengan skor terbesar, sehingga tetap mengikuti prinsip greedy.
 
 #### Intuisi strategi TerraFirma
 Bot ini dirancang untuk:
-- mengamankan ruin secepat mungkin pada early game,
-- memperluas kontrol wilayah secara sistematis,
-- menjaga eksplorasi tetap aktif,
-- dan menekan lawan melalui satu front utama yang terfokus.
+- mengamankan ruin secepat mungkin pada early game
+- memperluas kontrol wilayah secara sistematis
+- menjaga eksplorasi tetap aktif
+- menekan lawan melalui satu front utama yang terfokus
 
 #### Pembagian fase TerraFirma
 - **Early game**: fokus pada capture tower dan pertumbuhan ekonomi
