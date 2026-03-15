@@ -60,7 +60,6 @@ public class Soldier {
             return;
         }
 
-      
         int paintPct = (int)(100.0 * rc.getPaint() / rc.getType().paintCapacity);
 
         int retreatScore    = calcRetreatScore(paintPct);
@@ -73,7 +72,6 @@ public class Soldier {
         int blitzScore      = calcBlitzScore();
         int bleedScore      = RobotPlayer.isBleedingNow ? 60 : 0;
 
-        // Role modifier
         switch (RobotPlayer.myRole) {
             case RobotPlayer.ROLE_BUILDER:
                 buildTowerScore = (int)(buildTowerScore * 2.5);
@@ -134,7 +132,6 @@ public class Soldier {
             + "|" + RobotPlayer.phaseName(RobotPlayer.gamePhase)
             + "|p" + paintPct);
 
-        
         switch (RobotPlayer.curAct) {
             case RobotPlayer.ACT_RETREAT:
                 RobotPlayer.sendMsg(rc, RobotPlayer.MSG_PAINTLOW
@@ -145,7 +142,7 @@ public class Soldier {
                 doCombat(rc);
                 break;
             case RobotPlayer.ACT_BUILD_TOWER:
-                // Cek persistTarget masih valid
+
                 if (RobotPlayer.persistTarget != null) {
                     try {
                         RobotInfo atTarget = rc.senseRobotAtLocation(RobotPlayer.persistTarget);
@@ -213,12 +210,24 @@ public class Soldier {
             RobotPlayer.myRole = RobotPlayer.ROLE_ATTACKER;
     }
 
- 
     static int calcRetreatScore(int paintPct) {
         if (RobotPlayer.wallStuck) return 180;
-        if (paintPct >= 35) return 0;
-        if (RobotPlayer.curAct == RobotPlayer.ACT_BUILD_TOWER && paintPct >= 20) return 0;
-        return (35 - paintPct) * 5;
+
+        MapLocation nearestTower = RobotPlayer.getNearestKnownTower(RobotPlayer.myLoc);
+        int dynamicThreshold;
+        if (nearestTower != null) {
+            int distToTower = RobotPlayer.myLoc.distanceSquaredTo(nearestTower);
+            int estimatedSteps = (int) Math.sqrt(distToTower) + 1;
+            int paintNeeded = Math.min(50, estimatedSteps * 2 + 15);
+            dynamicThreshold = (int)(100.0 * paintNeeded / 200);
+        } else {
+            dynamicThreshold = 40;
+        }
+
+        if (paintPct >= dynamicThreshold) return 0;
+        if (RobotPlayer.curAct == RobotPlayer.ACT_BUILD_TOWER
+                && paintPct >= dynamicThreshold / 2) return 0;
+        return (dynamicThreshold - paintPct) * 5;
     }
 
     static int calcCombatScore(RobotController rc, int paintPct) {
@@ -274,11 +283,14 @@ public class Soldier {
 
         int score = 200;
         score -= RobotPlayer.myLoc.distanceSquaredTo(ruinLoc) / 3;
-        score -= RobotPlayer.countEnemyPaintNear(ruinLoc, RobotPlayer.nearbyTiles) * 5;
         score += rc.getRoundNum() < 150 ? 80 : 30;
         if (paintPct < 40 && RobotPlayer.curAct != RobotPlayer.ACT_BUILD_TOWER) score -= 30;
         if (RobotPlayer.isRuinInAllyTerritory(ruinLoc)) score += 40;
         if (RobotPlayer.mapArea < 900) score += 30;
+
+        int ep = RobotPlayer.countEnemyPaintNear(ruinLoc, RobotPlayer.nearbyTiles);
+        if (ep >= 4) score += 60;
+        else if (ep > 0) score += ep * 8;
 
         try {
             for (MapInfo m : rc.senseNearbyMapInfos(ruinLoc, 8)) {
@@ -286,7 +298,7 @@ public class Soldier {
                 if (mk != PaintType.EMPTY
                         && mk != PaintType.ALLY_PRIMARY
                         && mk != PaintType.ALLY_SECONDARY) {
-                    score += 120; // prioritas sangat tinggi — musuh sedang build di sini!
+                    score += 120;
                     break;
                 }
             }
@@ -359,7 +371,6 @@ public class Soldier {
         return 0;
     }
 
-   
     static void doRetreat(RobotController rc) throws GameActionException {
         RobotInfo towerNearby = RobotPlayer.findNearestTower(rc);
         if (towerNearby != null) {
@@ -385,7 +396,6 @@ public class Soldier {
         }
         RobotPlayer.moveTowardAllyPaint(rc);
     }
-
 
     static void doCombat(RobotController rc) throws GameActionException {
         if (rc.isActionReady()) attackBestTarget(rc);
@@ -421,7 +431,6 @@ public class Soldier {
             throws GameActionException {
         UnitType towerType = chooseTower(rc);
 
-      
         if (rc.canMarkTowerPattern(towerType, ruinLoc)) {
             boolean allyMarked = false;
             boolean enemyMarked = false;
@@ -502,7 +511,6 @@ public class Soldier {
         }
     }
 
-  
     static UnitType chooseTower(RobotController rc) throws GameActionException {
         int pt = allyPaintTowerCount;
         int mt = allyMoneyTowerCount;
@@ -519,7 +527,6 @@ public class Soldier {
         int pv = Math.max(0, 50 - pt * 15);
         if (pt <= mt) pv += 20;
 
-     
         int targetDefense = Math.max(1, totalTowers / 3);
         int dv;
         if (dt < targetDefense) {
@@ -583,7 +590,6 @@ public class Soldier {
         }
     }
 
-   
     static void doMessingUp(RobotController rc, MapLocation ruinLoc)
             throws GameActionException {
         if (rc.isActionReady()) {
@@ -598,7 +604,6 @@ public class Soldier {
         if (rc.isMovementReady()) RobotPlayer.moveToward(rc, ruinLoc);
     }
 
-  
     static void doBleedRespond(RobotController rc) throws GameActionException {
         if (RobotPlayer.bleedLocation == null) { RobotPlayer.curAct = RobotPlayer.ACT_FRONTIER_EXPAND; return; }
         if (rc.isActionReady()) {
@@ -619,28 +624,48 @@ public class Soldier {
         }
     }
 
- 
     static void doFrontierExpand(RobotController rc) throws GameActionException {
-        if (rc.isActionReady()) RobotPlayer.greedyPaintFrontier(rc, RobotPlayer.nearbyTiles);
+        boolean nearBuild = isNearRuinBeingBuilt(rc);
+
+        if (rc.isActionReady() && !nearBuild) {
+            RobotPlayer.greedyPaintFrontier(rc, RobotPlayer.nearbyTiles);
+        }
 
         MapLocation ft = findBestFrontierTarget(rc);
         if (rc.isMovementReady()) {
             if (ft != null && RobotPlayer.myLoc.distanceSquaredTo(ft) > 2) {
-                RobotPlayer.paintWhileMoving(rc, ft, RobotPlayer.nearbyTiles);
+                if (!nearBuild) RobotPlayer.paintWhileMoving(rc, ft, RobotPlayer.nearbyTiles);
                 RobotPlayer.moveToward(rc, ft);
             } else if (RobotPlayer.exploreTarget != null) {
-                RobotPlayer.paintWhileMoving(rc, RobotPlayer.exploreTarget, RobotPlayer.nearbyTiles);
+                if (!nearBuild) RobotPlayer.paintWhileMoving(rc, RobotPlayer.exploreTarget, RobotPlayer.nearbyTiles);
                 RobotPlayer.moveToward(rc, RobotPlayer.exploreTarget);
             } else {
                 RobotPlayer.moveExplore(rc);
             }
         }
 
-        if (rc.isActionReady()) RobotPlayer.greedyPaintFrontier(rc, rc.senseNearbyMapInfos());
+        if (rc.isActionReady() && !nearBuild) {
+            RobotPlayer.greedyPaintFrontier(rc, rc.senseNearbyMapInfos());
+        }
 
         if ((RobotPlayer.gamePhase == RobotPlayer.PHASE_BORDER
                 || RobotPlayer.gamePhase == RobotPlayer.PHASE_CONQUER)
                 && rc.isActionReady()) aggressivePushEnemy(rc);
+    }
+
+    static boolean isNearRuinBeingBuilt(RobotController rc) throws GameActionException {
+        for (MapInfo tile : RobotPlayer.nearbyTiles) {
+            if (!tile.hasRuin()) continue;
+            MapLocation ruinLoc = tile.getMapLocation();
+            try { if (rc.senseRobotAtLocation(ruinLoc) != null) continue; }
+            catch (GameActionException e) { continue; }
+            for (MapInfo nearby : rc.senseNearbyMapInfos(ruinLoc, 8)) {
+                PaintType mk = nearby.getMark();
+                if (mk == PaintType.ALLY_PRIMARY || mk == PaintType.ALLY_SECONDARY)
+                    return true;
+            }
+        }
+        return false;
     }
 
     static MapLocation findBestFrontierTarget(RobotController rc) throws GameActionException {
@@ -672,7 +697,6 @@ public class Soldier {
             MapLocation et = RobotPlayer.confirmedEnemy != null ? RobotPlayer.confirmedEnemy : RobotPlayer.mirrorLoc;
             if (et != null) score -= loc.distanceSquaredTo(et) / 20;
             score -= RobotPlayer.recentVisitPenalty(loc);
-            // Spesifikasi: kurangi skor jika banyak ally bersebelahan (adjacency drain penalty)
             try { score -= RobotPlayer.calcAdjacencyPenalty(rc, loc); }
             catch (GameActionException e) {}
             int ce = 0;
@@ -701,7 +725,6 @@ public class Soldier {
         if (best != null) rc.attack(best);
     }
 
-    
     static void doBlitzkrieg(RobotController rc) throws GameActionException {
         MapLocation blitzTarget = RobotPlayer.confirmedEnemy != null ? RobotPlayer.confirmedEnemy : RobotPlayer.mirrorLoc;
         if (rc.isActionReady()) {
@@ -727,7 +750,6 @@ public class Soldier {
         }
     }
 
-    
     static void runSrpDuty(RobotController rc, int paintPct) throws GameActionException {
         if (paintPct < 25) { doRetreat(rc); return; }
         MapLocation st = RobotPlayer.nextSrpTarget(rc);
@@ -740,13 +762,27 @@ public class Soldier {
         if (rc.canMarkResourcePattern(target)) rc.markResourcePattern(target);
         if (rc.isActionReady()) {
             MapLocation t = RobotPlayer.findClosestUnpainted(rc, target);
-            if (t != null) { boolean sec = rc.senseMapInfo(t).getMark() == PaintType.ALLY_SECONDARY; rc.attack(t, sec); }
-            else RobotPlayer.paintWhileMoving(rc, target, RobotPlayer.nearbyTiles);
+            if (t != null) {
+                boolean sec = rc.senseMapInfo(t).getMark() == PaintType.ALLY_SECONDARY;
+                rc.attack(t, sec);
+            } else {
+                for (MapInfo pat : rc.senseNearbyMapInfos(target, 8)) {
+                    if (!pat.isPassable() || pat.getPaint().isAlly()) continue;
+                    if (!rc.canAttack(pat.getMapLocation())) continue;
+                    int dx = pat.getMapLocation().x - target.x;
+                    int dy = pat.getMapLocation().y - target.y;
+                    rc.attack(pat.getMapLocation(), (dx + dy) % 2 != 0);
+                    break;
+                }
+            }
         }
         if (rc.isMovementReady()) RobotPlayer.moveToward(rc, target);
         if (rc.isActionReady()) {
             MapLocation t = RobotPlayer.findClosestUnpainted(rc, target);
-            if (t != null) { boolean sec = rc.senseMapInfo(t).getMark() == PaintType.ALLY_SECONDARY; rc.attack(t, sec); }
+            if (t != null) {
+                boolean sec = rc.senseMapInfo(t).getMark() == PaintType.ALLY_SECONDARY;
+                rc.attack(t, sec);
+            }
         }
         if (rc.canCompleteResourcePattern(target)) {
             rc.completeResourcePattern(target);

@@ -37,7 +37,6 @@ public class Splasher {
         RobotPlayer.paintUnderSelf(rc);
     }
 
- 
     static MapLocation findBestSplashCenter(RobotController rc, MapLocation myLoc,
                                              int minGain) throws GameActionException {
         MapLocation best = null; int bg = minGain - 1;
@@ -54,7 +53,6 @@ public class Splasher {
         }
         return best;
     }
-
 
     static void greedyMoveSplasher(RobotController rc) throws GameActionException {
         Direction bd = null; int bsc = Integer.MIN_VALUE;
@@ -76,7 +74,6 @@ public class Splasher {
             if (atCorner) score -= 60;
             else if (nearEdge) score -= 30;
 
-            // Paint tile tujuan
             try {
                 PaintType np = rc.senseMapInfo(next).getPaint();
                 if (RobotPlayer.isEnemyPaint(np))
@@ -85,7 +82,6 @@ public class Splasher {
                 else score -= 3;
             } catch (GameActionException e) {}
 
-            // Splash gain dari posisi tujuan (inti scoring splasher)
             int mg = 0;
             for (MapInfo c : rc.senseNearbyMapInfos(next, 4)) {
                 if (Clock.getBytecodesLeft() < RobotPlayer.BC_CUTOFF) break;
@@ -96,14 +92,12 @@ public class Splasher {
             }
             score += mg * 3;
 
-            // Bonus tile kosong di sekitar
             int en = 0;
             for (MapInfo tile : RobotPlayer.nearbyTiles)
                 if (tile.isPassable() && tile.getPaint() == PaintType.EMPTY
                     && next.distanceSquaredTo(tile.getMapLocation()) <= 9) en++;
             score += en / (RobotPlayer.gamePhase == RobotPlayer.PHASE_BLITZKRIEG ? 3 : 2);
 
-            // Kejar musuh
             for (RobotInfo e : RobotPlayer.nearbyEnemies)
                 if (next.distanceSquaredTo(e.location)
                     < RobotPlayer.myLoc.distanceSquaredTo(e.location))
@@ -111,7 +105,6 @@ public class Splasher {
                         ? (RobotPlayer.gamePhase == RobotPlayer.PHASE_BLITZKRIEG ? 20 : 10)
                         : 5;
 
-           
             if (et != null) {
                 int nowDist = RobotPlayer.myLoc.distanceSquaredTo(et);
                 int nextDist = next.distanceSquaredTo(et);
@@ -119,14 +112,14 @@ public class Splasher {
                     score += (RobotPlayer.gamePhase == RobotPlayer.PHASE_BLITZKRIEG ? 25
                             : RobotPlayer.gamePhase == RobotPlayer.PHASE_BORDER ? 15 : 10);
                 else if (nextDist > nowDist)
-                    score -= 5; // sedikit penalti jika menjauh dari target
+                    score -= 5;
             } else if (RobotPlayer.spawnTowerLoc != null) {
-                
+
                 int nowDist = RobotPlayer.myLoc.distanceSquaredTo(RobotPlayer.spawnTowerLoc);
                 int nextDist = next.distanceSquaredTo(RobotPlayer.spawnTowerLoc);
                 int maxDist = (RobotPlayer.mapW * RobotPlayer.mapW + RobotPlayer.mapH * RobotPlayer.mapH) / 4;
                 if (nextDist > nowDist && nowDist < maxDist)
-                    score += 6; // bonus kecil, tidak agresif
+                    score += 6;
             }
 
             int secId = RobotPlayer.getSectorId(next);
@@ -145,7 +138,6 @@ public class Splasher {
         if (bd != null) { rc.move(bd); RobotPlayer.myLoc = rc.getLocation(); }
     }
 
-    
     static int calcSplashGain(RobotController rc, MapLocation center)
             throws GameActionException {
         int gain = 0;
@@ -160,7 +152,6 @@ public class Splasher {
         return gain;
     }
 
-    
     static void splasherRetreat(RobotController rc) throws GameActionException {
         RobotInfo towerNearby = RobotPlayer.findNearestTower(rc);
         if (towerNearby != null) {

@@ -2,7 +2,6 @@ package zoro;
 
 import battlecode.common.*;
 
-
 public class Mopper {
 
     public static void run(RobotController rc) throws GameActionException {
@@ -35,7 +34,7 @@ public class Mopper {
         MapInfo[] near2 = rc.senseNearbyMapInfos(RobotPlayer.myLoc, 2);
 
         if (rc.isActionReady()) {
-            // --- Transfer ke soldier ---
+
             RobotInfo bestSol = null; int tfGain = 0;
             for (RobotInfo ally : RobotPlayer.nearbyAllies) {
                 if (Clock.getBytecodesLeft() < RobotPlayer.BC_CUTOFF) break;
@@ -49,17 +48,15 @@ public class Mopper {
                 if (gain > tfGain) { tfGain = gain; bestSol = ally; }
             }
 
-            // --- Swing ---
             Direction bestSwing = null; int swGain = 0;
             for (Direction dir : RobotPlayer.CARDINAL) {
                 if (!rc.canMopSwing(dir)) continue;
                 int gain = RobotPlayer.countSwingHits(rc, dir) * 30;
-                // bonus jika ada ruin di dekat — bantu soldier build
+
                 for (MapInfo t : near2) if (t.hasRuin()) gain += 15;
                 if (gain > swGain) { swGain = gain; bestSwing = dir; }
             }
 
-            // --- Mop tile ---
             MapLocation bestMop = null; int mopGain = 0;
             for (MapInfo tile : near2) {
                 if (Clock.getBytecodesLeft() < RobotPlayer.BC_CUTOFF) break;
@@ -70,7 +67,7 @@ public class Mopper {
                     RobotInfo on = rc.senseRobotAtLocation(tile.getMapLocation());
                     if (on != null && on.team != rc.getTeam()) gain += 20;
                 } catch (GameActionException e) {}
-                // bonus jika dekat ruin
+
                 for (MapInfo near : RobotPlayer.nearbyTiles)
                     if (near.hasRuin()
                         && tile.getMapLocation().distanceSquaredTo(near.getMapLocation()) <= 8)
@@ -78,12 +75,10 @@ public class Mopper {
                 if (gain > mopGain) { mopGain = gain; bestMop = tile.getMapLocation(); }
             }
 
-            // Boost mop gain di fase agresif
             if (RobotPlayer.gamePhase == RobotPlayer.PHASE_CONQUER
                     || RobotPlayer.gamePhase == RobotPlayer.PHASE_BLITZKRIEG)
                 mopGain = (int)(mopGain * 1.5);
 
-            // Pilih aksi dengan gain tertinggi
             if (swGain >= mopGain && swGain >= tfGain && bestSwing != null) {
                 rc.mopSwing(bestSwing);
             } else if (mopGain >= tfGain && bestMop != null) {
@@ -96,7 +91,6 @@ public class Mopper {
             }
         }
 
-        
         greedyMoveMopper(rc);
     }
 
@@ -120,7 +114,6 @@ public class Mopper {
             if (et != null) { RobotPlayer.moveToward(rc, et); return; }
         }
 
-        // Respond bleed
         if (RobotPlayer.isBleedingNow && RobotPlayer.bleedLocation != null
                 && rc.getPaint() > 20) {
             RobotPlayer.moveToward(rc, RobotPlayer.bleedLocation); return;
@@ -153,19 +146,23 @@ public class Mopper {
                 if (!tile.hasRuin()) continue;
                 try {
                     RobotInfo at = rc.senseRobotAtLocation(tile.getMapLocation());
-                    if (at == null || !at.type.isTowerType())
-                        if (next.distanceSquaredTo(tile.getMapLocation()) <= 16) score += 20;
+                    if (at != null && at.type.isTowerType() && at.team == rc.getTeam()) {
+
+                        if (next.distanceSquaredTo(tile.getMapLocation()) <= 16) score += 10;
+                    }
+
+                    else if (at == null) {
+                        if (next.distanceSquaredTo(tile.getMapLocation()) <= 8) score -= 15;
+                    }
                 } catch (GameActionException e) {}
             }
 
-            // Paint tile tujuan
             try {
                 PaintType np = rc.senseMapInfo(next).getPaint();
                 if (RobotPlayer.isEnemyPaint(np))  score += 15;
                 else if (np == PaintType.EMPTY)     score += 4;
             } catch (GameActionException e) {}
 
-            // Bonus dekat soldier butuh refill
             for (RobotInfo ally : RobotPlayer.nearbyAllies) {
                 if (ally.type != UnitType.SOLDIER) continue;
                 int pct  = (int)(100.0 * ally.paintAmount / ally.type.paintCapacity);
@@ -175,18 +172,15 @@ public class Mopper {
                     score += pct < 20 ? give * 3 : give;
             }
 
-            // Bonus menjauhi spawn tower (ekspansi)
             if (RobotPlayer.spawnTowerLoc != null && RobotPlayer.nearbyEnemies.length == 0)
                 if (next.distanceSquaredTo(RobotPlayer.spawnTowerLoc)
                     > RobotPlayer.myLoc.distanceSquaredTo(RobotPlayer.spawnTowerLoc)) score += 9;
 
-            // Sektor bonus/penalti
             int secId = RobotPlayer.getSectorId(next);
             if (secId >= 0 && !RobotPlayer.isSectorBitSet(RobotPlayer.visitedSectors, secId)) score += 15;
             if (secId >= 0 && RobotPlayer.isSectorBitSet(RobotPlayer.exhaustedSectors, secId)) score -= 20;
             if (secId >= 0 && RobotPlayer.isSectorBitSet(RobotPlayer.mirrorPrioritySec, secId)) score += 15;
 
-            // Anti-stuck + anti-bergerombol
             score -= RobotPlayer.recentVisitPenalty(next) / 2;
             score -= rc.senseNearbyRobots(next, 2, rc.getTeam()).length * 3;
 

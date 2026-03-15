@@ -3,10 +3,8 @@ package zoro;
 import battlecode.common.*;
 import java.util.Random;
 
-
 public class RobotPlayer {
 
-    
     static final Random rng = new Random(6147);
     static int turnCount = 0;
 
@@ -17,14 +15,13 @@ public class RobotPlayer {
     static final Direction[] CARDINAL = {
         Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST,
     };
-   
+
     static final Direction[] ORBIT_DIRS = {
         Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST,
     };
 
     static final int BC_CUTOFF = 2500;
 
-   
     static final int MSG_ENEMY        = 1 << 30;
     static final int MSG_RUIN         = 2 << 30;
     static final int MSG_PAINTLOW     = 3 << 30;
@@ -34,7 +31,6 @@ public class RobotPlayer {
     static final int MSG_RUIN_CLAIMED = 1 << 27;
     static final int MSG_COVERAGE     = 1 << 26;
 
-    
     static final int PHASE_EXPAND     = 0;
     static final int PHASE_BORDER     = 1;
     static final int PHASE_CONQUER    = 2;
@@ -51,7 +47,6 @@ public class RobotPlayer {
     static final float BLITZ_EXIT_COVERAGE    = 0.50f;
     static final int   BLITZ_MIN_ROUND        = 200;
 
-
     static final int ROLE_BUILDER  = 0;
     static final int ROLE_EXPLORER = 1;
     static final int ROLE_PAINTER  = 2;
@@ -63,7 +58,6 @@ public class RobotPlayer {
         Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST
     };
 
-    
     static final int ACT_RETREAT         = 0;
     static final int ACT_COMBAT          = 1;
     static final int ACT_BUILD_TOWER     = 2;
@@ -79,15 +73,13 @@ public class RobotPlayer {
     static int         actTimer      = 0;
     static boolean     isSrpDuty     = false;
 
-    
     static int         mapW = -1, mapH = -1, mapArea = -1;
     static boolean     symInit       = false;
     static MapLocation spawnTowerLoc = null;
     static MapLocation mirrorLoc     = null;
     static MapLocation confirmedEnemy= null;
-    static int         symType       = 0; // 0=rot180 1=reflectX 2=reflectY
+    static int         symType       = 0;
 
- 
     static final int SECTOR_SIZE     = 5;
     static final int EXHAUSTED_TURNS = 10;
     static final int MIN_PAINT_PROG  = 2;
@@ -105,18 +97,16 @@ public class RobotPlayer {
     static MapLocation sectorTarget    = null;
     static int         sectorTargetAge = 0;
 
- 
     static MapLocation exploreTarget    = null;
     static int         exploreTargetAge = 0;
     static int         mySectorX        = -1;
     static int         mySectorY        = -1;
 
-  
     static final int   MAX_KNOWN_RUINS      = 25;
     static MapLocation[] knownRuins         = new MapLocation[MAX_KNOWN_RUINS];
     static int[]         ruinVisitRound     = new int[MAX_KNOWN_RUINS];
     static int           knownRuinCount     = 0;
-    static final int     RUIN_CLAIM_COOLDOWN = 10; // cooldown singkat antar klaim
+    static final int     RUIN_CLAIM_COOLDOWN = 10;
 
     static int getRuinIndex(MapLocation loc) {
         for (int i = 0; i < knownRuinCount; i++)
@@ -139,7 +129,6 @@ public class RobotPlayer {
         return rc.getRoundNum() - ruinVisitRound[idx] < RUIN_CLAIM_COOLDOWN;
     }
 
-   
     static final int   MAX_KNOWN_TOWERS = 10;
     static MapLocation[] knownTowers    = new MapLocation[MAX_KNOWN_TOWERS];
     static int           knownTowerCount= 0;
@@ -152,7 +141,6 @@ public class RobotPlayer {
         }
     }
 
-    // Cari tower terdekat dari memory (tidak perlu dalam sensor radius)
     static MapLocation getNearestKnownTower(MapLocation myLoc) {
         MapLocation best = null; int bd = Integer.MAX_VALUE;
         for (int i = 0; i < knownTowerCount; i++) {
@@ -163,36 +151,31 @@ public class RobotPlayer {
         return best;
     }
 
-  
     static MapLocation[] claimedRuins = new MapLocation[10];
     static int           claimedCount = 0;
-
 
     static MapLocation[] recentLocs = new MapLocation[10];
     static int           recentIdx  = 0;
     static MapLocation   lastLoc    = null;
     static int           stuckCount = 0;
 
- 
     static int         prevAllyCount = -1;
     static final int   BLEED_THRESH  = 3;
     static boolean     isBleedingNow = false;
     static MapLocation bleedLocation = null;
 
-
     static int ruinProgressTimer = 0;
     static int ruinLastUnpainted = 999;
 
-    
     static MapLocation[] srpQueue     = new MapLocation[20];
     static boolean[]     srpDone      = new boolean[20];
     static int           srpQueueSize = 0;
     static int           srpQueueHead = 0;
     static int           srpSquadLastRound = 0;
 
-    
     static int    towerSpawnCount    = 0;
     static int    towerBuilderCount  = 0;
+    static int    towerLocalSpawned  = 0;
     static double dblSoldiers  = 0;
     static double dblMoppers   = 0;
     static double dblSplashers = 0;
@@ -202,7 +185,6 @@ public class RobotPlayer {
     static MapInfo[]   nearbyTiles   = null;
     static MapLocation myLoc         = null;
 
-   
     @SuppressWarnings("unused")
     public static void run(RobotController rc) throws GameActionException {
         if (mapW < 0) {
@@ -233,14 +215,12 @@ public class RobotPlayer {
         }
     }
 
-   
     static void updateInfo(RobotController rc) throws GameActionException {
         myLoc        = rc.getLocation();
         nearbyAllies = rc.senseNearbyRobots(-1, rc.getTeam());
         nearbyEnemies= rc.senseNearbyRobots(-1, rc.getTeam().opponent());
         nearbyTiles  = rc.senseNearbyMapInfos();
 
-        
         for (RobotInfo ally : nearbyAllies) {
             if (ally.type.isTowerType() && ally.team == rc.getTeam()) {
                 registerTower(ally.location);
@@ -254,7 +234,6 @@ public class RobotPlayer {
         }
     }
 
- 
     static void initSymmetry(RobotController rc) throws GameActionException {
         int bd = Integer.MAX_VALUE;
         for (RobotInfo ally : nearbyAllies) {
@@ -265,7 +244,6 @@ public class RobotPlayer {
         if (rc.getType().isTowerType()) spawnTowerLoc = myLoc;
         if (spawnTowerLoc == null) return;
 
-        
         registerTower(spawnTowerLoc);
 
         MapLocation rot  = new MapLocation(mapW-1-spawnTowerLoc.x, mapH-1-spawnTowerLoc.y);
@@ -293,7 +271,6 @@ public class RobotPlayer {
         }
     }
 
- 
     static void updateExploreTarget(RobotController rc) throws GameActionException {
         if (exploreTarget != null
                 && exploreTargetAge < 4
@@ -348,7 +325,6 @@ public class RobotPlayer {
         return new MapLocation(cx, cy);
     }
 
- 
     static void updateSectorState(RobotController rc) throws GameActionException {
         int sid = getSectorId(myLoc);
         if (sid < 0) return;
@@ -477,7 +453,6 @@ public class RobotPlayer {
         prevAllyCount = currentAlly;
     }
 
-  
     static void updateAsymmetricCoverage() {
         if (mirrorLoc == null) return;
         for (MapInfo tile : nearbyTiles) {
@@ -488,7 +463,6 @@ public class RobotPlayer {
         }
     }
 
-   
     static MapLocation navTarget     = null;
     static boolean     wallFollowing = false;
     static boolean     followLeft    = true;
@@ -618,7 +592,6 @@ public class RobotPlayer {
                 if (et != null) score -= center.distanceSquaredTo(et) / 15;
                 if (spawnTowerLoc != null) score += center.distanceSquaredTo(spawnTowerLoc) / 20;
 
-                
                 boolean isEdgeSector = (sx == 0 || sx == secGridW-1
                                      || sy == 0 || sy == secGridH-1);
                 if (isEdgeSector) {
@@ -642,7 +615,6 @@ public class RobotPlayer {
         }
         return best;
     }
-
 
     static void paintWhileMoving(RobotController rc, MapLocation target,
                                   MapInfo[] tiles) throws GameActionException {
@@ -683,7 +655,6 @@ public class RobotPlayer {
         return 0;
     }
 
-   
     static int calcAdjacencyPenalty(RobotController rc, MapLocation loc)
             throws GameActionException {
         int allyAdj = 0;
@@ -708,7 +679,6 @@ public class RobotPlayer {
         } catch (GameActionException e) {}
     }
 
-  
     static void updateStuck() {
         if (lastLoc != null && myLoc.equals(lastLoc)) stuckCount++;
         else stuckCount = 0;
@@ -725,11 +695,10 @@ public class RobotPlayer {
         return 60;
     }
 
-  
-    static boolean wallStuck          = false; // flag: sedang stuck di tembok/ujung
-    static int     wallStuckTurns     = 0;     // berapa turn sudah stuck
-    static int     wallStuckReturnTurn= -1;    // turn saat mulai retreat dari stuck
-    static final int WALL_STUCK_THRESHOLD = 5; // stuck 5 turn = blacklist sektor
+    static boolean wallStuck          = false;
+    static int     wallStuckTurns     = 0;
+    static int     wallStuckReturnTurn= -1;
+    static final int WALL_STUCK_THRESHOLD = 5;
 
     static void detectWallStuck(RobotController rc) throws GameActionException {
         int blocked = 0;
@@ -744,7 +713,7 @@ public class RobotPlayer {
         if (isWallArea && notMoving) {
             wallStuckTurns++;
         } else if (!notMoving) {
-            
+
             wallStuckTurns = Math.max(0, wallStuckTurns - 1);
             if (wallStuckTurns == 0) wallStuck = false;
         }
@@ -819,7 +788,6 @@ public class RobotPlayer {
 
             if (mark == PaintType.EMPTY) continue;
 
-           
             boolean doneCorrectly = (mark == PaintType.ALLY_PRIMARY   && paint == PaintType.ALLY_PRIMARY)
                                  || (mark == PaintType.ALLY_SECONDARY && paint == PaintType.ALLY_SECONDARY);
             if (doneCorrectly) continue;
@@ -869,7 +837,7 @@ public class RobotPlayer {
         int count = 0;
         for (RobotInfo ally : nearbyAllies)
             if (ally.type == UnitType.SOLDIER
-                && ally.location.distanceSquaredTo(ruinLoc) <= 25) count++;
+                && ally.location.distanceSquaredTo(ruinLoc) <= 8) count++;
         return count;
     }
 
@@ -944,7 +912,6 @@ public class RobotPlayer {
             if (srpQueue[i] != null && srpQueue[i].equals(loc)) { srpDone[i] = true; return; }
     }
 
-  
     static void sendMsg(RobotController rc, int msg) throws GameActionException {
         for (RobotInfo ally : nearbyAllies) {
             if (!ally.type.isTowerType()) continue;
@@ -994,7 +961,6 @@ public class RobotPlayer {
         return best;
     }
 
-
     static boolean isEnemyPaint(PaintType p) {
         return p == PaintType.ENEMY_PRIMARY || p == PaintType.ENEMY_SECONDARY;
     }
@@ -1008,7 +974,6 @@ public class RobotPlayer {
         return t==UnitType.LEVEL_ONE_DEFENSE_TOWER||t==UnitType.LEVEL_TWO_DEFENSE_TOWER||t==UnitType.LEVEL_THREE_DEFENSE_TOWER;
     }
 
-  
     static String actName(int a) {
         switch(a) {
             case ACT_RETREAT:return"RET"; case ACT_COMBAT:return"CMB";

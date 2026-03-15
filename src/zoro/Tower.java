@@ -2,10 +2,9 @@ package zoro;
 
 import battlecode.common.*;
 
-
 public class Tower {
 
-    static int lastEnemySeenRound = -1000; // untuk defense tower self-destruct (SPAARK)
+    static int lastEnemySeenRound = -1000;
 
     public static void run(RobotController rc) throws GameActionException {
         if (!RobotPlayer.symInit) {
@@ -13,11 +12,11 @@ public class Tower {
             RobotPlayer.symInit = true;
         }
 
-        boolean     paintLow    = false;
-        boolean     enemyNear   = false;
-        MapLocation ruinMsg     = null;
-        MapLocation bleedInfo   = null;
-        boolean     srpNeeded   = false;
+        boolean     paintLow  = false;
+        boolean     enemyNear = false;
+        MapLocation ruinMsg   = null;
+        MapLocation bleedInfo = null;
+        boolean     srpNeeded = false;
 
         if (RobotPlayer.turnCount % 10 == 0) {
             if (RobotPlayer.coverageReportCount > 0)
@@ -35,8 +34,7 @@ public class Tower {
             } else if (type == RobotPlayer.MSG_ENEMY) {
                 enemyNear = true;
                 lastEnemySeenRound = rc.getRoundNum();
-                RobotPlayer.refineSymmetry(
-                    new MapLocation((data>>15)&0x7FFF, data&0x7FFF));
+                RobotPlayer.refineSymmetry(new MapLocation((data>>15)&0x7FFF, data&0x7FFF));
             } else if (type == RobotPlayer.MSG_RUIN) {
                 ruinMsg = new MapLocation((data>>15)&0x7FFF, data&0x7FFF);
             } else {
@@ -47,8 +45,7 @@ public class Tower {
                 } else if ((data & RobotPlayer.MSG_BLEED_FLAG) != 0) {
                     bleedInfo = new MapLocation((data>>15)&0x3FFF, data&0x7FFF);
                 } else if ((data & RobotPlayer.MSG_RUIN_CLAIMED) != 0) {
-                    RobotPlayer.addClaimedRuin(
-                        new MapLocation((data>>14)&0x3FFF, data&0x3FFF));
+                    RobotPlayer.addClaimedRuin(new MapLocation((data>>14)&0x3FFF, data&0x3FFF));
                 } else if ((data & RobotPlayer.MSG_COVERAGE) != 0) {
                     int covInt = data & 0x3FFF;
                     RobotPlayer.coverageReportSum += covInt / 1000f;
@@ -62,15 +59,13 @@ public class Tower {
         }
 
         if (rc.getRoundNum() % 10 == 0 && RobotPlayer.globalCoverage > 0) {
-            int covMsg = RobotPlayer.MSG_COVERAGE | (int)(RobotPlayer.globalCoverage * 1000);
-            broadcastTower(rc, covMsg);
+            broadcastTower(rc, RobotPlayer.MSG_COVERAGE | (int)(RobotPlayer.globalCoverage * 1000));
         }
 
         int round = rc.getRoundNum();
         srpNeeded = round > 60 && round % 50 == 0
                  && round - RobotPlayer.srpSquadLastRound >= 50;
 
-       
         towerSpawn(rc, paintLow, enemyNear, ruinMsg, bleedInfo, srpNeeded);
 
         towerSingleAttack(rc);
@@ -81,28 +76,23 @@ public class Tower {
         tryDisintegrateDefense(rc);
     }
 
-    
     static void tryUpgradeSelf(RobotController rc) throws GameActionException {
         if (!rc.canUpgradeTower(rc.getLocation())) return;
         int chips = rc.getChips();
         UnitType t = rc.getType();
-        
-        int reserve = 500; // simpan minimal 500 chips untuk spawn
+        int reserve = 500;
         if      (RobotPlayer.isMoneyTower(t)   && chips >= 3500 + reserve) rc.upgradeTower(rc.getLocation());
         else if (RobotPlayer.isPaintTower(t)   && chips >= 4000 + reserve) rc.upgradeTower(rc.getLocation());
         else if (RobotPlayer.isDefenseTower(t) && chips >= 3500 + reserve) rc.upgradeTower(rc.getLocation());
     }
 
-    
     static void towerSingleAttack(RobotController rc) throws GameActionException {
         if (!rc.isActionReady()) return;
         if (RobotPlayer.nearbyEnemies.length == 0) return;
-
         int atk = rc.getType().attackStrength;
         RobotInfo best = null; int bs = Integer.MIN_VALUE;
         for (RobotInfo e : RobotPlayer.nearbyEnemies) {
             if (!rc.canAttack(e.location)) continue;
-            // Prioritas: bisa dibunuh 1 hit > HP terendah
             int score = e.health <= atk ? (10000 - e.health) : (1000 - e.health);
             if (e.type == UnitType.SOLDIER) score += 50;
             if (score > bs) { bs = score; best = e; }
@@ -110,16 +100,10 @@ public class Tower {
         if (best != null && rc.canAttack(best.location)) rc.attack(best.location);
     }
 
- 
     static void towerAoeAttack(RobotController rc) throws GameActionException {
         if (!rc.isActionReady()) return;
         if (RobotPlayer.nearbyEnemies.length == 0) return;
-
-        if (rc.canAttack(null)) {
-            rc.attack(null);
-            return;
-        }
-
+        if (rc.canAttack(null)) { rc.attack(null); return; }
         MapLocation best = null; int bestCnt = 0;
         for (RobotInfo e : RobotPlayer.nearbyEnemies) {
             if (Clock.getBytecodesLeft() < RobotPlayer.BC_CUTOFF) break;
@@ -132,7 +116,6 @@ public class Tower {
         if (best != null) rc.attack(best);
     }
 
-
     static void broadcastTower(RobotController rc, int data) throws GameActionException {
         for (RobotInfo ally : RobotPlayer.nearbyAllies) {
             if (Clock.getBytecodesLeft() < RobotPlayer.BC_CUTOFF) break;
@@ -142,19 +125,12 @@ public class Tower {
         }
     }
 
-    
     static void tryDisintegrateDefense(RobotController rc) throws GameActionException {
         if (!RobotPlayer.isDefenseTower(rc.getType())) return;
-        if (RobotPlayer.nearbyEnemies.length > 0) {
-            lastEnemySeenRound = rc.getRoundNum(); return;
-        }
+        if (RobotPlayer.nearbyEnemies.length > 0) { lastEnemySeenRound = rc.getRoundNum(); return; }
         for (MapInfo tile : RobotPlayer.nearbyTiles)
-            if (RobotPlayer.isEnemyPaint(tile.getPaint())) {
-                lastEnemySeenRound = rc.getRoundNum(); return;
-            }
-        if (rc.getRoundNum() - lastEnemySeenRound > 30) {
-            rc.disintegrate();
-        }
+            if (RobotPlayer.isEnemyPaint(tile.getPaint())) { lastEnemySeenRound = rc.getRoundNum(); return; }
+        if (rc.getRoundNum() - lastEnemySeenRound > 30) rc.disintegrate();
     }
 
     static void towerSpawn(RobotController rc, boolean paintLow, boolean enemyNear,
@@ -163,41 +139,10 @@ public class Tower {
         if (!rc.isActionReady()) return;
         int round = rc.getRoundNum();
 
-        
-        boolean tooManyRobots = round > 150
-            && rc.senseNearbyRobots(9, rc.getTeam()).length >= 6;
-        boolean chipsLow = rc.getChips() < 500;
-        if (tooManyRobots && chipsLow && round % 3 != 0) return;
-
-     
-        boolean hasDefenseTower = false;
-        for (RobotInfo ally : RobotPlayer.nearbyAllies) {
-            if (RobotPlayer.isDefenseTower(ally.type)) { hasDefenseTower = true; break; }
-        }
-
-        if (RobotPlayer.towerSpawnCount < 3) {
-            if (spawnWithRole(rc, UnitType.SOLDIER, RobotPlayer.ROLE_BUILDER, ruinMsg))
-                RobotPlayer.towerSpawnCount++;
-            return;
-        }
-        if (round < 50) {
-            if (spawnWithRole(rc, UnitType.SOLDIER, RobotPlayer.ROLE_BUILDER, ruinMsg))
-                RobotPlayer.towerSpawnCount++;
-            return;
-        }
-
-        if (srpNeeded) {
-            if (spawnWithRole(rc, UnitType.SOLDIER, RobotPlayer.ROLE_PAINTER, null)) {
-                RobotPlayer.towerSpawnCount++;
-                RobotPlayer.srpSquadLastRound = round;
-                spawnWithRole(rc, UnitType.SOLDIER, RobotPlayer.ROLE_PAINTER, null);
-                RobotPlayer.towerSpawnCount++;
-            }
-            return;
-        }
-
         int solCount = 0, mopCount = 0, splashCount = 0, lowPaintSol = 0;
         int enemyTiles = 0, emptyTiles = 0;
+        boolean hasDefenseTower = false;
+
         for (RobotInfo ally : RobotPlayer.nearbyAllies) {
             if (Clock.getBytecodesLeft() < RobotPlayer.BC_CUTOFF) break;
             if (ally.type == UnitType.SOLDIER) {
@@ -205,6 +150,7 @@ public class Tower {
                 if ((int)(100.0*ally.paintAmount/ally.type.paintCapacity) < 40) lowPaintSol++;
             } else if (ally.type == UnitType.MOPPER)   mopCount++;
             else if (ally.type == UnitType.SPLASHER)   splashCount++;
+            if (RobotPlayer.isDefenseTower(ally.type)) hasDefenseTower = true;
         }
         for (MapInfo tile : RobotPlayer.nearbyTiles) {
             if (Clock.getBytecodesLeft() < RobotPlayer.BC_CUTOFF) break;
@@ -213,19 +159,76 @@ public class Tower {
             else if (p == PaintType.EMPTY && tile.isPassable()) emptyTiles++;
         }
 
+        int nearbyRobots = solCount + mopCount + splashCount;
+
+        boolean tooManyRobots = round > 150 && nearbyRobots >= 6;
+        boolean chipsLow = rc.getChips() < 500;
+        if (tooManyRobots && chipsLow && round % 3 != 0) return;
+
         boolean needBuilder = ruinMsg != null;
+        MapLocation nearestUnbuiltRuin = null;
+        int nearestRuinDist = Integer.MAX_VALUE;
+        for (MapInfo tile : RobotPlayer.nearbyTiles) {
+            if (!tile.hasRuin()) continue;
+            try {
+                RobotInfo at = rc.senseRobotAtLocation(tile.getMapLocation());
+                if (at != null && at.type.isTowerType()) continue;
+            } catch (GameActionException e) { continue; }
+            int d = rc.getLocation().distanceSquaredTo(tile.getMapLocation());
+            if (d < nearestRuinDist) { nearestRuinDist = d; nearestUnbuiltRuin = tile.getMapLocation(); }
+        }
+        if (nearestUnbuiltRuin != null) {
+            needBuilder = true;
+            if (ruinMsg == null) ruinMsg = nearestUnbuiltRuin;
+        }
+
+        int buildersNearRuin = 0;
+        if (ruinMsg != null) {
+            for (RobotInfo ally : RobotPlayer.nearbyAllies)
+                if (ally.type == UnitType.SOLDIER && ally.location.distanceSquaredTo(ruinMsg) <= 8)
+                    buildersNearRuin++;
+        }
+        if (buildersNearRuin >= 2) needBuilder = false;
+
+        if (RobotPlayer.towerLocalSpawned < 3) {
+            if (spawnWithRole(rc, UnitType.SOLDIER, RobotPlayer.ROLE_BUILDER, ruinMsg)) {
+                RobotPlayer.towerLocalSpawned++;
+                RobotPlayer.towerSpawnCount++;
+            }
+            return;
+        }
+        if (round < 50) {
+            if (spawnWithRole(rc, UnitType.SOLDIER, RobotPlayer.ROLE_BUILDER, ruinMsg)) {
+                RobotPlayer.towerLocalSpawned++;
+                RobotPlayer.towerSpawnCount++;
+            }
+            return;
+        }
+
+        if (srpNeeded) {
+            if (spawnWithRole(rc, UnitType.SOLDIER, RobotPlayer.ROLE_PAINTER, null)) {
+                RobotPlayer.towerLocalSpawned++;
+                RobotPlayer.towerSpawnCount++;
+                RobotPlayer.srpSquadLastRound = round;
+                spawnWithRole(rc, UnitType.SOLDIER, RobotPlayer.ROLE_PAINTER, null);
+                RobotPlayer.towerSpawnCount++;
+            }
+            return;
+        }
 
         if (RobotPlayer.gamePhase == RobotPlayer.PHASE_BLITZKRIEG) {
             if (needBuilder && RobotPlayer.towerBuilderCount < 2) {
                 if (spawnWithRole(rc, UnitType.SOLDIER, RobotPlayer.ROLE_BUILDER, ruinMsg)) {
                     RobotPlayer.towerSpawnCount++; RobotPlayer.towerBuilderCount++;
+                    RobotPlayer.towerLocalSpawned++;
                 }
                 return;
             }
             UnitType t = solCount * 2 < splashCount + mopCount ? UnitType.SOLDIER
                        : splashCount <= mopCount ? UnitType.SPLASHER : UnitType.MOPPER;
-            if (spawnWithRole(rc, t, RobotPlayer.ROLE_ATTACKER, null))
-                RobotPlayer.towerSpawnCount++;
+            if (spawnWithRole(rc, t, RobotPlayer.ROLE_ATTACKER, null)) {
+                RobotPlayer.towerSpawnCount++; RobotPlayer.towerLocalSpawned++;
+            }
             return;
         }
 
@@ -245,8 +248,7 @@ public class Tower {
             }
         }
 
-        
-        int total = Math.max(1, solCount + mopCount + splashCount);
+        int total = Math.max(1, nearbyRobots);
         double sSoldier  = RobotPlayer.dblSoldiers  + targetSol    - (double)solCount/total;
         double sSplasher = RobotPlayer.dblSplashers + targetSplash - (double)splashCount/total;
         double sMopper   = RobotPlayer.dblMoppers   + targetMop    - (double)mopCount/total;
@@ -264,12 +266,12 @@ public class Tower {
         if (hasDefenseTower) { sSoldier += 0.15; sMopper += 0.10; }
 
         int soldierRole;
-        if (needBuilder)                                soldierRole = RobotPlayer.ROLE_BUILDER;
+        if (needBuilder)                                     soldierRole = RobotPlayer.ROLE_BUILDER;
         else if (RobotPlayer.gamePhase == RobotPlayer.PHASE_BORDER
               || RobotPlayer.gamePhase == RobotPlayer.PHASE_CONQUER)
-                                                        soldierRole = RobotPlayer.ROLE_ATTACKER;
-        else if (emptyTiles > 10)                       soldierRole = RobotPlayer.ROLE_PAINTER;
-        else                                            soldierRole = RobotPlayer.ROLE_EXPLORER;
+                                                             soldierRole = RobotPlayer.ROLE_ATTACKER;
+        else if (emptyTiles > 10)                            soldierRole = RobotPlayer.ROLE_PAINTER;
+        else                                                 soldierRole = RobotPlayer.ROLE_EXPLORER;
 
         UnitType toSpawn;
         if (sSoldier >= sSplasher && sSoldier >= sMopper) toSpawn = UnitType.SOLDIER;
@@ -277,16 +279,13 @@ public class Tower {
         else                                               toSpawn = UnitType.MOPPER;
 
         boolean spawned = false;
-        if (toSpawn == UnitType.SOLDIER) {
-            spawned = spawnWithRole(rc, UnitType.SOLDIER, soldierRole, ruinMsg);
-        } else if (toSpawn == UnitType.SPLASHER) {
-            spawned = spawnWithRole(rc, UnitType.SPLASHER, RobotPlayer.ROLE_PAINTER, null);
-        } else {
-            spawned = spawnWithRole(rc, UnitType.MOPPER, RobotPlayer.ROLE_ATTACKER, null);
-        }
+        if (toSpawn == UnitType.SOLDIER)       spawned = spawnWithRole(rc, UnitType.SOLDIER, soldierRole, ruinMsg);
+        else if (toSpawn == UnitType.SPLASHER) spawned = spawnWithRole(rc, UnitType.SPLASHER, RobotPlayer.ROLE_PAINTER, null);
+        else                                   spawned = spawnWithRole(rc, UnitType.MOPPER, RobotPlayer.ROLE_ATTACKER, null);
 
         if (spawned) {
             RobotPlayer.towerSpawnCount++;
+            RobotPlayer.towerLocalSpawned++;
             RobotPlayer.dblSoldiers  += targetSol;
             RobotPlayer.dblSplashers += targetSplash;
             RobotPlayer.dblMoppers   += targetMop;
@@ -300,6 +299,7 @@ public class Tower {
         if (rc.canBuildRobot(type, roleLoc)) {
             rc.buildRobot(type, roleLoc); return true;
         }
+
         Direction bestDir = null; int bestScore = Integer.MIN_VALUE;
         for (Direction dir : RobotPlayer.DIRS) {
             MapLocation loc = rc.getLocation().add(dir);
@@ -320,8 +320,20 @@ public class Tower {
         if (p.isAlly())                score += 2;
         else if (p == PaintType.EMPTY) score -= 1;
         else score -= unit == UnitType.MOPPER ? 4 : unit == UnitType.SPLASHER ? 3 : 2;
+
         if (unit == UnitType.SOLDIER && ruinLoc != null)
             score -= loc.distanceSquaredTo(ruinLoc) / 8;
+
+        for (RobotInfo ally : RobotPlayer.nearbyAllies) {
+            if (!ally.type.isTowerType()) continue;
+            if (ally.location.equals(rc.getLocation())) continue;
+
+            Direction awayFromTower = ally.location.directionTo(rc.getLocation());
+            Direction toSpawn = rc.getLocation().directionTo(loc);
+            if (toSpawn == awayFromTower || toSpawn == awayFromTower.rotateLeft()
+                    || toSpawn == awayFromTower.rotateRight()) score += 8;
+        }
+
         if (RobotPlayer.spawnTowerLoc != null)
             score += loc.distanceSquaredTo(RobotPlayer.spawnTowerLoc) / 8;
         int secId = RobotPlayer.getSectorId(loc);
