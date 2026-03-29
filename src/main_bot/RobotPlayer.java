@@ -1,4 +1,4 @@
-package zoro;
+package main_bot;
 
 import battlecode.common.*;
 import java.util.Random;

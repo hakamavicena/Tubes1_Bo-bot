@@ -1,4 +1,4 @@
-package TerraFirma;
+package alternative_bots_2;
 
 import battlecode.common.*;
 
